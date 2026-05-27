@@ -1,8 +1,3 @@
-/**
- * @license
- * SPDX-License-Identifier: Apache-2.0
- */
-
 import express from 'express';
 import path from 'path';
 import { GoogleGenAI, Type } from '@google/genai';
@@ -463,7 +458,6 @@ The optimized modeling configuration utilizes standard hyperparameter parameters
 
 function generatePredictionsForTarget(target: string, features: string[], modelType: string, rows: any[]) {
   const isClassification = modelType === 'classification' || target.toLowerCase().includes('churn') || target.toLowerCase().includes('fail');
-  const targetTypeNumeric = rows.length > 0 && typeof rows[0][target] === 'number';
 
   return rows.slice(0, 30).map((row, index) => {
     // Generate actual vs predicted values logically linked
