@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { Play, Settings, Cpu, LineChart, BarChart2, Activity, CheckCircle, HelpCircle } from 'lucide-react';
+import { Play, Settings, Cpu, LineChart, BarChart2, Activity, CheckCircle, HelpCircle, Terminal, Sparkles, AlertCircle } from 'lucide-react';
 import {
   BarChart,
   Bar,
@@ -54,6 +54,9 @@ export default function MLPipeline({
   const [progressLog, setProgressLog] = useState<string[]>([]);
 
   // Sync suggestion weights when analysis loads
+  const aiSuggestedFeaturesStr = JSON.stringify(aiSuggestedFeatures || []);
+  const datasetColumnsStr = dataset.columns.map(c => c.name).join(',');
+
   useEffect(() => {
     if (aiSuggestedTarget) {
       setTarget(aiSuggestedTarget);
@@ -61,7 +64,7 @@ export default function MLPipeline({
     if (aiSuggestedType) {
       setModelType(aiSuggestedType as any);
     }
-    if (aiSuggestedFeatures.length > 0) {
+    if (aiSuggestedFeatures && aiSuggestedFeatures.length > 0) {
       setSelectedFeatures(aiSuggestedFeatures.filter(f => dataset.columns.some(col => col.name === f)));
     } else {
       // Default to picking numeric columns excluding target
@@ -69,7 +72,7 @@ export default function MLPipeline({
       const initial = dataset.columns.map(c => c.name).filter(n => n !== t).slice(0, 5);
       setSelectedFeatures(initial);
     }
-  }, [aiSuggestedTarget, aiSuggestedType, aiSuggestedFeatures, dataset]);
+  }, [aiSuggestedTarget, aiSuggestedType, aiSuggestedFeaturesStr, datasetColumnsStr]);
 
   // Handle changing target - ensure target is removed from feature lists
   const handleTargetChange = (val: string) => {
@@ -149,41 +152,44 @@ export default function MLPipeline({
   };
 
   return (
-    <div className="space-y-6" id="ml_module">
-      <div className="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
-        <span className="text-[10px] font-bold text-indigo-600 uppercase tracking-widest">PREDICTIVE MACHINE LEARNING</span>
-        <h2 className="text-lg font-bold text-slate-850 tracking-tight mt-1 flex items-center gap-2">
-          <Cpu className="w-5 h-5 text-indigo-600" /> 3. Intelligent Model Orchestration
+    <div className="space-y-8" id="ml_module">
+      {/* Configuration Hub Card */}
+      <div className="bg-slate-900/60 backdrop-blur-md p-6 sm:p-8 rounded-2xl border border-slate-800 shadow-2xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-80 h-80 bg-indigo-500/5 rounded-full blur-3xl pointer-events-none" />
+
+        <span className="text-[10px] font-mono font-bold text-indigo-400 uppercase tracking-widest">PREDICTIVE MACHINE LEARNING</span>
+        <h2 className="text-xl font-extrabold text-white tracking-tight mt-1 flex items-center gap-2">
+          <Cpu className="w-5.5 h-5.5 text-indigo-405 text-indigo-400" /> 3. Intelligent Model Orchestration
         </h2>
-        <p className="text-xs text-slate-500 mt-1">
-          Design your predictive target, select features, calibrate the learning tree, and run optimization loops.
+        <p className="text-xs text-slate-400 mt-1 max-w-xl">
+          Design custom regression trees or classifiers, map input features, calibrate hyperparameters, and monitor optimization trials.
         </p>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-8 relative z-10">
           {/* Section 1: Target Selector and Feature Checklist */}
           <div className="space-y-4">
             <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono mb-2 px-0.5">
                 A. Select Target Column
               </label>
               <select
                 value={target}
                 onChange={(e) => handleTargetChange(e.target.value)}
-                className="w-full bg-white border border-slate-200 rounded-lg p-2.5 text-xs text-slate-800 focus:ring-1 focus:ring-indigo-500 font-bold"
+                className="w-full bg-[#111625] border border-slate-800 rounded-xl p-3 text-xs text-white font-mono focus:ring-1 focus:ring-indigo-505 font-bold cursor-pointer"
               >
                 {dataset.columns.map(c => (
-                  <option key={c.name} value={c.name}>
-                    {c.name} ({c.type.toUpperCase()})
+                  <option key={c.name} value={c.name} className="bg-slate-950 font-mono">
+                    {c.name} ({(c.type || '').toUpperCase()})
                   </option>
                 ))}
               </select>
             </div>
 
             <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono mb-2 px-0.5">
                 B. Design Input Features
               </label>
-              <div className="max-h-[220px] overflow-y-auto space-y-1.5 border border-slate-200 p-3 rounded-lg bg-slate-50/50">
+              <div className="max-h-[220px] overflow-y-auto space-y-1.5 border border-slate-850 p-3.5 rounded-xl bg-slate-950/45">
                 {dataset.columns
                   .filter(c => c.name !== target)
                   .map(col => {
@@ -191,17 +197,17 @@ export default function MLPipeline({
                     return (
                       <label
                         key={col.name}
-                        className="flex items-center gap-2.5 text-xs p-1.5 rounded hover:bg-white cursor-pointer transition-colors"
+                        className="flex items-center gap-3 text-xs p-2 rounded-lg hover:bg-slate-900/60 cursor-pointer transition-colors"
                       >
                         <input
                           type="checkbox"
                           checked={selectedFeatures.includes(col.name)}
                           onChange={() => toggleFeature(col.name)}
-                          className="rounded text-indigo-600 focus:ring-indigo-505 cursor-pointer"
+                          className="rounded text-indigo-500 focus:ring-indigo-650 cursor-pointer w-4 h-4 bg-slate-900 border-slate-800"
                         />
-                        <span className="font-mono text-slate-800 flex-1 truncate">{col.name}</span>
+                        <span className="font-mono text-slate-300 flex-1 truncate">{col.name}</span>
                         {isSuggested && (
-                          <span className="text-[9px] bg-indigo-50 text-indigo-600 font-bold px-1.5 py-0.5 rounded shrink-0 border border-indigo-100/50">
+                          <span className="text-[8px] font-mono tracking-wider uppercase bg-indigo-500/15 text-indigo-404 text-indigo-400 font-bold px-2 py-0.5 rounded border border-indigo-500/20 shrink-0">
                             Advised
                           </span>
                         )}
@@ -215,54 +221,39 @@ export default function MLPipeline({
           {/* Section 2: Automated Pathways and Hyperparameters */}
           <div className="space-y-4">
             <div>
-              <label className="block text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">
-                C. Pipeline Type
+              <label className="block text-[10px] font-bold text-slate-400 uppercase tracking-widest font-mono mb-2 px-0.5">
+                C. Pipeline Task Class
               </label>
-              <div className="grid grid-cols-3 gap-1 p-1 bg-slate-100 rounded text-[10px] font-bold">
-                <button
-                  type="button"
-                  onClick={() => setModelType('classification')}
-                  className={`py-2 rounded cursor-pointer ${
-                    modelType === 'classification' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
-                  }`}
-                >
-                  CLASSIFY
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setModelType('regression')}
-                  className={`py-2 rounded cursor-pointer ${
-                    modelType === 'regression' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
-                  }`}
-                >
-                  REGRESS
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setModelType('timeseries')}
-                  className={`py-2 rounded cursor-pointer ${
-                    modelType === 'timeseries' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500 hover:text-slate-800'
-                  }`}
-                >
-                  FORECAST
-                </button>
+              <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-950/50 rounded-xl border border-slate-850 text-[10px] font-bold font-mono">
+                {(['classification', 'regression', 'timeseries'] as const).map((type) => (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => setModelType(type)}
+                    className={`py-2 px-1 rounded-lg cursor-pointer text-center tracking-tight transition-all duration-200 ${
+                      modelType === type ? 'bg-indigo-600 text-white shadow' : 'text-slate-450 hover:text-slate-205 text-slate-400'
+                    }`}
+                  >
+                    {type === 'classification' ? 'CLASSIFY' : type === 'regression' ? 'REGRESS' : 'FORECAST'}
+                  </button>
+                ))}
               </div>
             </div>
 
             {/* Hyperparameter Accordion */}
-            <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/50 space-y-3.5">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-slate-700 uppercase tracking-wide">
-                <Settings className="w-4 h-4 text-indigo-500" />
+            <div className="border border-slate-800 rounded-xl p-4.5 bg-slate-950/20 space-y-4">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-300 uppercase tracking-wider font-mono">
+                <Settings className="w-4.5 h-4.5 text-indigo-400" />
                 <span>Hyperparameter Regulators</span>
               </div>
 
               <div className="grid grid-cols-2 gap-3 text-xs">
                 <div>
-                  <label className="block text-[10px] text-slate-400 font-bold mb-1">Max Estimators</label>
+                  <label className="block text-[10px] text-slate-450 font-bold font-mono mb-1">Max Estimators</label>
                   <select
                     value={estimators}
                     onChange={(e) => setEstimators(Number(e.target.value))}
-                    className="w-full bg-white border border-slate-200 rounded p-1.5 text-xs text-slate-800"
+                    className="w-full bg-[#111625] border border-slate-800 rounded-lg p-2.5 text-xs text-slate-200 font-mono cursor-pointer"
                   >
                     <option value={50}>50 Trees</option>
                     <option value={100}>100 Trees</option>
@@ -271,11 +262,11 @@ export default function MLPipeline({
                 </div>
 
                 <div>
-                  <label className="block text-[10px] text-slate-400 font-bold mb-1">Max Depth</label>
+                  <label className="block text-[10px] text-slate-455 font-bold font-mono mb-1">Max Depth</label>
                   <select
                     value={maxDepth}
                     onChange={(e) => setMaxDepth(Number(e.target.value))}
-                    className="w-full bg-white border border-slate-200 rounded p-1.5 text-xs text-slate-800"
+                    className="w-full bg-[#111625] border border-slate-800 rounded-lg p-2.5 text-xs text-slate-200 font-mono cursor-pointer"
                   >
                     <option value={5}>Depth (5)</option>
                     <option value={8}>Depth (8)</option>
@@ -284,28 +275,28 @@ export default function MLPipeline({
                 </div>
 
                 <div>
-                  <label className="block text-[10px] text-slate-400 font-bold mb-1">Learning Rate</label>
+                  <label className="block text-[10px] text-slate-455 font-bold font-mono mb-1">Learning Rate</label>
                   <select
                     value={learningRate}
                     onChange={(e) => setLearningRate(Number(e.target.value))}
-                    className="w-full bg-white border border-slate-200 rounded p-1.5 text-xs text-slate-800"
+                    className="w-full bg-[#111625] border border-slate-800 rounded-lg p-2.5 text-xs text-slate-200 font-mono cursor-pointer"
                   >
                     <option value={0.01}>0.01 (Slow)</option>
                     <option value={0.05}>0.05</option>
-                    <option value={0.1}>0.10 (Standard)</option>
+                    <option value={0.1}>0.10 (Std)</option>
                     <option value={0.2}>0.20 (Fast)</option>
                   </select>
                 </div>
 
                 <div>
-                  <label className="block text-[10px] text-slate-400 font-bold mb-1">Train/Test Split</label>
+                  <label className="block text-[10px] text-slate-455 font-bold font-mono mb-1">Hold Ratio</label>
                   <select
                     value={splitRatio}
                     onChange={(e) => setSplitRatio(Number(e.target.value))}
-                    className="w-full bg-white border border-slate-200 rounded p-1.5 text-xs text-slate-800"
+                    className="w-full bg-[#111625] border border-slate-800 rounded-lg p-2.5 text-xs text-slate-200 font-mono cursor-pointer"
                   >
                     <option value={0.7}>70/30 holds</option>
-                    <option value={0.8}>80/20 standard</option>
+                    <option value={0.8}>80/20 std</option>
                     <option value={0.9}>90/10 holds</option>
                   </select>
                 </div>
@@ -314,19 +305,19 @@ export default function MLPipeline({
           </div>
 
           {/* Section 3: Training Progress Logger and Run */}
-          <div className="flex flex-col justify-between bg-slate-900 border border-slate-950 p-5 rounded-xl text-white">
+          <div className="flex flex-col justify-between bg-slate-950 border border-slate-800/80 p-5 rounded-2xl text-white shadow-inner">
             <div className="space-y-3">
-              <h3 className="text-[10px] font-bold uppercase tracking-wider text-indigo-400 flex items-center gap-1.5">
-                <Activity className="w-4 h-4 text-emerald-500 animate-pulse" /> Terminal Progression Logger
+              <h3 className="text-[10px] font-bold uppercase tracking-widest text-indigo-400 flex items-center gap-2 font-mono">
+                <Terminal className="w-4 h-4 text-emerald-400" /> Operational progression Logger
               </h3>
-              <div className="bg-black/40 border border-slate-800 font-mono text-[9px] p-3 rounded-lg space-y-2 h-[160px] overflow-y-auto text-emerald-300">
+              <div className="bg-slate-900 border border-slate-800 font-mono text-[10px] p-3.5 rounded-xl space-y-2 h-[160px] overflow-y-auto text-emerald-400 shadow-inner">
                 {progressLog.length === 0 ? (
-                  <span className="text-slate-500 italic flex items-center gap-1.5 mt-2">
-                    Console idle. Click "Execution pipeline" below...
+                  <span className="text-slate-500 italic flex items-center gap-1.5 mt-2 font-mono">
+                    Console idle. Ready for launch triggers...
                   </span>
                 ) : (
                   progressLog.map((log, i) => (
-                    <div key={i} className="line-scale">
+                    <div key={i} className="leading-relaxed">
                       {log}
                     </div>
                   ))
@@ -337,16 +328,16 @@ export default function MLPipeline({
             <button
               onClick={handleLaunchPipeline}
               disabled={loadingML || selectedFeatures.length === 0}
-              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs py-3 px-4 rounded-xl flex items-center justify-center gap-2 mt-4 shadow-md transition-all duration-150 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer border-0"
+              className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs py-3.5 px-4 rounded-xl flex items-center justify-center gap-2 mt-4 shadow-lg shadow-indigo-650/30 transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer border-0 font-mono"
             >
               {loadingML ? (
                 <>
-                  <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   Optimizing nodes...
                 </>
               ) : (
                 <>
-                  <Play className="w-4 h-4 fill-current" /> EXECUTE PIPELINE
+                  <Play className="w-4 h-4 fill-current text-white shrink-0" /> EXECUTE PIPELINE
                 </>
               )}
             </button>
@@ -358,54 +349,54 @@ export default function MLPipeline({
       {mlResult && (
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 animate-fade-in">
           {/* Key Metrics Dashboard */}
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+          <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-slate-800 shadow-2xl flex flex-col justify-between hover:border-slate-705 transition-colors duration-300">
             <div>
-              <h3 className="font-bold text-slate-800 text-sm mb-3">Model Performance Evaluation</h3>
+              <h3 className="font-extrabold text-white text-sm mb-4 pb-1.5 border-b border-slate-800">Model Performance Evaluations</h3>
               <div className="grid grid-cols-2 gap-4">
                 {mlResult.modelType === 'classification' ? (
                   <>
-                    <div className="bg-indigo-50/50 p-3 rounded-xl border border-indigo-100/50 text-center">
-                      <p className="text-[10px] text-slate-500 font-bold uppercase">Test Accuracy</p>
-                      <p className="text-xl font-extrabold text-indigo-900 mt-0.5">
+                    <div className="bg-indigo-500/5 p-4 rounded-2xl border border-indigo-500/10 text-center">
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-mono">Confidence Level</p>
+                      <p className="text-2xl font-extrabold text-[#759FFF] mt-1 font-mono">
                         {((mlResult.metrics.accuracy || 0.89) * 100).toFixed(1)}%
                       </p>
                     </div>
-                    <div className="bg-emerald-50/50 p-3 rounded-xl border border-emerald-100/50 text-center">
-                      <p className="text-[10px] text-slate-500 font-bold uppercase">F1-Score Metrics</p>
-                      <p className="text-xl font-extrabold text-emerald-950 mt-0.5">
+                    <div className="bg-emerald-500/5 p-4 rounded-2xl border border-emerald-500/10 text-center">
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-mono">F1-Score Balance</p>
+                      <p className="text-2xl font-extrabold text-emerald-400 mt-1 font-mono">
                         {((mlResult.metrics.f1Score || 0.87) * 100).toFixed(1)}%
                       </p>
                     </div>
-                    <div className="bg-slate-50 p-3 rounded-xl text-center text-xs text-slate-600 col-span-2 border border-slate-200">
-                      Precision: <strong className="font-mono text-slate-800">{((mlResult.metrics.precision || 0.88) * 100).toFixed(1)}%</strong> | Recall:{' '}
-                      <strong className="font-mono text-slate-800">{((mlResult.metrics.recall || 0.86) * 100).toFixed(1)}%</strong>
+                    <div className="bg-slate-950/60 p-3.5 rounded-xl text-center text-[11px] text-slate-300 col-span-2 border border-slate-850 font-mono">
+                      Precision: <strong className="text-white">{((mlResult.metrics.precision || 0.88) * 100).toFixed(1)}%</strong> | Recall:{' '}
+                      <strong className="text-white">{((mlResult.metrics.recall || 0.86) * 100).toFixed(1)}%</strong>
                     </div>
                   </>
                 ) : (
                   <>
-                    <div className="bg-indigo-50/50 p-3 rounded-xl border border-indigo-100/50 text-center col-span-2">
-                      <p className="text-[10px] text-slate-500 font-bold uppercase">R-Squared (Variance Explained)</p>
-                      <p className="text-xl font-extrabold text-indigo-900 mt-0.5">
+                    <div className="bg-indigo-500/5 p-4 rounded-2xl border border-indigo-500/15 text-center col-span-2">
+                      <p className="text-[10px] text-slate-455 font-mono font-bold uppercase tracking-wider">R-Squared Variant Explainability</p>
+                      <p className="text-2xl font-extrabold text-indigo-400 mt-1.5 font-mono">
                         {((mlResult.metrics.r2Score || 0.86) * 105).toFixed(1)}%
                       </p>
                     </div>
-                    <div className="bg-slate-50 p-3 rounded-lg text-center text-[11px] text-slate-600 col-span-2 space-y-1.5 border border-slate-200">
-                      <p>MAE (Mean Absolute): <strong className="font-mono text-slate-800">{mlResult.metrics.mae?.toFixed(2)}</strong></p>
-                      <p>RMSE (Error Deviation): <strong className="font-mono text-slate-800">{mlResult.metrics.rmse?.toFixed(2)}</strong></p>
+                    <div className="bg-slate-950/60 p-3.5 rounded-xl text-center text-[11px] text-slate-300 col-span-2 font-mono flex flex-col gap-1 border border-slate-850">
+                      <p>MAE (Mean Value Error): <strong className="text-white">{mlResult.metrics.mae?.toFixed(3)}</strong></p>
+                      <p>RMSE (Std Residual Error): <strong className="text-white">{mlResult.metrics.rmse?.toFixed(3)}</strong></p>
                     </div>
                   </>
                 )}
               </div>
             </div>
 
-            <div className="mt-5 border-t border-slate-100 pt-3 text-[11px] text-slate-500">
-              <span className="font-bold text-slate-700">Algorithm Auto-Chosen:</span> <span className="font-mono bg-slate-100 px-2 py-0.5 rounded text-indigo-600">{mlResult.modelAlgorithm}</span>
+            <div className="mt-6 border-t border-slate-800 pt-4 text-[11px] text-slate-400 font-mono">
+              <span className="font-bold text-slate-455">Tuned Algorithm:</span> <span className="font-mono bg-[#111625] px-2.5 py-1 rounded-lg border border-slate-800 text-indigo-400">{mlResult.modelAlgorithm}</span>
             </div>
           </div>
 
           {/* Feature Importance Recharts Bar */}
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm col-span-1">
-            <h3 className="font-bold text-slate-850 text-sm mb-3">Computed Feature Importance</h3>
+          <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-slate-800 shadow-2xl hover:border-slate-705 transition-colors duration-300 col-span-1">
+            <h3 className="font-extrabold text-white text-sm mb-4 pb-1.5 border-b border-slate-800">Feature Importance Weights</h3>
             <div className="h-[180px]">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart
@@ -413,31 +404,31 @@ export default function MLPipeline({
                   layout="vertical"
                   margin={{ top: 5, right: 10, left: -20, bottom: 5 }}
                 >
-                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#e2e8f0" />
-                  <XAxis type="number" tickFormatter={(v) => `${(v * 100).toFixed(0)}%`} stroke="#94a3b8" fontSize={9} />
-                  <YAxis type="category" dataKey="feature" stroke="#475569" fontSize={9} tickLine={false} />
+                  <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#1e293b" />
+                  <XAxis type="number" stroke="#64748b" tickFormatter={(v) => `${(v * 100).toFixed(0)}%`} fontSize={9} />
+                  <YAxis type="category" dataKey="feature" stroke="#94a3b8" fontSize={9} tickLine={false} />
                   <Tooltip
-                    formatter={(val: any) => [`${(val * 100).toFixed(1)}%`, 'Weight']}
-                    contentStyle={{ fontSize: '11px', background: '#0f172a', color: '#fff', borderRadius: '4px' }}
+                    formatter={(val: any) => [`${(val * 100).toFixed(1)}%`, 'Coefficient Weight']}
+                    contentStyle={{ fontSize: '11.5px', background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(8px)', borderColor: '#334155', color: '#fff', borderRadius: '12px' }}
                   />
-                  <Bar dataKey="score" fill="#4f46e5" radius={[0, 4, 4, 0]} />
+                  <Bar dataKey="score" fill="#6366f1" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </div>
 
           {/* Actual vs Predicted Scatter */}
-          <div className="bg-white p-5 rounded-xl border border-slate-200 shadow-sm col-span-1">
-            <h3 className="font-bold text-slate-850 text-sm mb-3">Model Prediction Visualizer</h3>
+          <div className="bg-slate-900/60 backdrop-blur-md p-6 rounded-2xl border border-slate-800 shadow-2xl hover:border-slate-705 transition-colors duration-300 col-span-1">
+            <h3 className="font-extrabold text-white text-sm mb-4 pb-1.5 border-b border-slate-800">Operational evaluations Scatter</h3>
             <div className="h-[180px]">
               <ResponsiveContainer width="100%" height="100%">
                 <ScatterChart margin={{ top: 5, right: 10, left: -20, bottom: 5 }}>
-                  <CartesianGrid stroke="#e2e8f0" />
-                  <XAxis type="number" dataKey="Actual" name="Actual" stroke="#94a3b8" fontSize={10} label={{ value: 'Actual', position: 'insideBottom', offset: -5, fontSize: 10 }} />
-                  <YAxis type="number" dataKey="Predicted" name="Predicted" stroke="#94a3b8" fontSize={10} label={{ value: 'Predicted', angle: -90, position: 'insideLeft', offset: 5, fontSize: 10 }} />
+                  <CartesianGrid stroke="#1e293b" strokeDasharray="3 3" />
+                  <XAxis type="number" dataKey="Actual" name="Actual" stroke="#64748b" fontSize={9} label={{ value: 'Actual Values', position: 'insideBottom', offset: -5, fontSize: 8, fill: '#64748b' }} />
+                  <YAxis type="number" dataKey="Predicted" name="Predicted" stroke="#64748b" fontSize={9} label={{ value: 'Predicted Values', angle: -90, position: 'insideLeft', offset: 5, fontSize: 8, fill: '#64748b' }} />
                   <Tooltip
                     cursor={{ strokeDasharray: '3 3' }}
-                    contentStyle={{ fontSize: '11px', background: '#0f172a', color: '#fff', borderRadius: '4px' }}
+                    contentStyle={{ fontSize: '11.5px', background: 'rgba(15,23,42,0.85)', backdropFilter: 'blur(8px)', borderColor: '#334155', color: '#fff', borderRadius: '12px' }}
                   />
                   <Scatter name="Evaluations" data={getScatterData()} fill="#10b981" />
                 </ScatterChart>
@@ -449,22 +440,23 @@ export default function MLPipeline({
 
       {/* Model Optimization Technical Log Markdown */}
       {mlResult && mlResult.markdownReport && (
-        <div className="bg-slate-50 border border-slate-200 rounded-xl p-6 text-xs text-slate-700 animate-fade-in space-y-4">
+        <div className="bg-slate-900/40 border border-slate-800 rounded-2xl p-6 text-xs text-slate-300 animate-fade-in space-y-4 shadow-xl">
           <div className="flex items-center gap-2 mb-2">
-            <CheckCircle className="w-5 h-5 text-indigo-650" />
-            <h3 className="font-bold text-slate-850 text-sm">Automated Technical Pipeline Documentation</h3>
+            <CheckCircle className="w-5 h-5 text-[#10B981] animate-pulse" />
+            <h3 className="font-extrabold text-white text-sm tracking-tight">Technical Pipeline Compilation Report</h3>
           </div>
-          <div className="prose prose-slate max-w-none text-slate-800 leading-relaxed space-y-2">
-            <div className="bg-white p-4 rounded-xl border border-slate-250 font-mono text-[10px] space-y-1">
-              <p className="font-bold text-slate-500 uppercase tracking-wide">Hyperparameter Iterative Log Results</p>
+          <div className="prose prose-slate max-w-none text-slate-350 leading-relaxed font-sans space-y-4">
+            <div className="bg-slate-950/80 p-4.5 rounded-xl border border-slate-850 font-mono text-[10px] space-y-1.5 shadow-inner">
+              <p className="font-bold text-indigo-400 uppercase tracking-wider">Iterative Tuning Hyperparameter trial History</p>
               {mlResult.tuningHistory?.map((it, idx) => (
-                <div key={idx} className="flex justify-between border-b border-slate-100 py-1">
-                  <span>Trial #{it.iteration}: {it.params}</span>
-                  <span className="font-bold text-indigo-700">Validation Score: {it.score}</span>
+                <div key={idx} className="flex justify-between border-b border-slate-800/60 py-1.5 font-mono">
+                  <span>Trial Parameters #{it.iteration}: {it.params}</span>
+                  <span className="font-bold text-emerald-400">Score Metrics: {it.score}</span>
                 </div>
               ))}
             </div>
-            <div className="mt-3 bg-white p-4 rounded-xl border border-slate-250 whitespace-pre-line text-xs">
+            
+            <div className="bg-slate-950 p-5 rounded-xl border border-slate-850 whitespace-pre-line text-xs font-mono text-slate-350 shadow-inner leading-relaxed">
               {mlResult.markdownReport}
             </div>
           </div>
