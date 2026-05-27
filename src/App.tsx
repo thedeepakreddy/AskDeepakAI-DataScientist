@@ -207,6 +207,14 @@ export default function App() {
             </div>
           )}
 
+          <a
+            href="mailto:thedeepakreddy1@gmail.com"
+            className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-slate-850 bg-slate-900/40 hover:bg-slate-850 hover:border-slate-700 text-slate-300 hover:text-white transition-all duration-300 text-xs font-semibold select-none cursor-pointer shadow-md"
+          >
+            <Mail className="w-3.5 h-3.5" />
+            <span className="hidden xs:inline">Write Mail</span>
+          </a>
+
           <button
             onClick={() => setIsAboutModalOpen(true)}
             className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl border border-[#3bc8c8]/30 bg-[#3bc8c8]/5 hover:bg-[#3bc8c8]/15 hover:border-[#3bc8c8]/50 text-[#3bc8c8] hover:text-[#57e2e2] transition-all duration-300 text-xs font-semibold select-none cursor-pointer shadow-md"
