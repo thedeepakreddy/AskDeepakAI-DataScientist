@@ -1,0 +1,37 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;550&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Accent mapping of indigo to the bright AskDeepakAI teal-cyan and dark-blue branding */
+  --color-indigo-50: #e0fbfb;
+  --color-indigo-100: #bbf7f7;
+  --color-indigo-200: #77eeee;
+  --color-indigo-300: #4ce5e5;
+  --color-indigo-350: #3bc8c8;
+  --color-indigo-400: #3bc8c8; /* Main Teal-Cyan logo color */
+  --color-indigo-405: #3bc8c8;
+  --color-indigo-500: #2cb2b2;
+  --color-indigo-550: #1b5bd2; /* Dark Blue logo color */
+  --color-indigo-600: #1b5bd2; /* Buttons & primary triggers using Dark Blue */
+  --color-indigo-650: #1449aa; /* Darker blue state */
+  --color-indigo-700: #0f3885;
+  --color-indigo-800: #0c2b66;
+  --color-indigo-900: #081d45;
+  --color-indigo-950: #061530;
+
+  /* Custom brand colors for further components if needed */
+  --color-brand-cyan: #3bc8c8;
+  --color-brand-blue: #1b5bd2;
+  --color-brand-orange: #ef7222;
+  --color-brand-yellow: #dfa435;
+  --color-brand-red: #b22038;
+
+  /* Map emerald classes to high-vibrancy teal for state sync */
+  --color-emerald-300: #57e2e2;
+  --color-emerald-400: #3bc8c8;
+  --color-emerald-500: #29bbfd;
+}
+
