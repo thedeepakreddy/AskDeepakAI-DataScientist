@@ -150,7 +150,7 @@ Render will automatically pull the branch, compile your React application bundle
 
 ---
 
-## 🩺 The Troubleshooting Vault
+##  The Troubleshooting Vault
 
 If you encounter errors during CI/CD builds or deployment, apply these standard resolutions:
 
@@ -198,12 +198,12 @@ To keep your code changes clean and ensure security, do not commit compiled modu
 
 ```text
 AskDeepakAI-DataScientist/
-├── .env                  <-- ❌ SECRETS (Never commit to Git!)
-├── .env.example          <-- ✅ Example Template
-├── .gitignore            <-- ✅ Ignores dist/ and node_modules/
-├── package.json          <-- ✅ Packages & Exec scripts
-├── server.ts             <-- ✅ Express NodeJS entrypoint
-└── src/                  <-- ✅ UI Pages, Styles and Charts
+├── .env                  <--  SECRETS (Never commit to Git!)
+├── .env.example          <--  Example Template
+├── .gitignore            <--  Ignores dist/ and node_modules/
+├── package.json          <--  Packages & Exec scripts
+├── server.ts             <--  Express NodeJS entrypoint
+└── src/                  <--  UI Pages, Styles and Charts
 ```
 
 ---
