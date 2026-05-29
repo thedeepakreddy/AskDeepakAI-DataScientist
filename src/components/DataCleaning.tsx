@@ -121,10 +121,10 @@ export default function DataCleaning({ dataset, onUpdateDataset, onResetOriginal
 
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6 pb-4 border-b border-slate-800 z-10 relative">
           <div>
-            <span className="text-[10px] font-bold text-indigo-400 tracking-widest font-mono uppercase">COVARIATE PREPARATION</span>
-            <h2 className="text-xl font-extrabold text-white tracking-tight mt-1">2. Cleanse and Prepare Covariates</h2>
-            <p className="text-xs text-slate-450 mt-1 max-w-xl">
-              Impute empty values with statistical weights, prune redundancies, and audit rows in real-time.
+            <span className="text-[10px] font-bold text-indigo-400 tracking-widest font-mono uppercase">DATA PREPARATION</span>
+            <h2 className="text-xl font-extrabold text-white tracking-tight mt-1">2. Cleanse & Prepare Dataset</h2>
+            <p className="text-xs text-slate-450 mt-1 max-w-xl font-sans">
+              Fill empty values with smart averages, remove unused columns, and review spreadsheet rows in real-time.
             </p>
           </div>
           <button
@@ -146,7 +146,7 @@ export default function DataCleaning({ dataset, onUpdateDataset, onResetOriginal
           {/* Missing Value Fill Card */}
           <div className="border border-slate-800 bg-slate-950/40 rounded-2xl p-5 sm:p-6 space-y-4 hover:border-slate-700 transition-all duration-300 shadow-xl">
             <h3 className="font-extrabold text-[#748BAA] text-sm flex items-center gap-2 tracking-tight">
-              <Settings2 className="w-4.5 h-4.5 text-indigo-400" /> Mathematical Imbalance Imputer
+              <Settings2 className="w-4.5 h-4.5 text-indigo-400" /> Smart Missing Data Filler
             </h3>
             <div className="space-y-4">
               <div>
@@ -206,7 +206,7 @@ export default function DataCleaning({ dataset, onUpdateDataset, onResetOriginal
           {/* Feature Selector & Drop Redundancies Card */}
           <div className="border border-slate-800 bg-slate-950/40 rounded-2xl p-5 sm:p-6 space-y-4 hover:border-slate-700 transition-all duration-300 shadow-xl">
             <h3 className="font-extrabold text-[#748BAA] text-sm flex items-center gap-2 tracking-tight">
-              <Trash2 className="w-4.5 h-4.5 text-rose-500" /> Prune Redundant Columns
+              <Trash2 className="w-4.5 h-4.5 text-rose-500" /> Remove Unused Columns
             </h3>
             <p className="text-xs text-slate-400 leading-relaxed font-medium">
               Drop ID indicators, invariant constants, or static coordinates to collapse dimensionality noise and prevent target value leakage points.
@@ -259,7 +259,7 @@ export default function DataCleaning({ dataset, onUpdateDataset, onResetOriginal
       <div className="bg-slate-900/40 rounded-2xl border border-slate-800 p-6 shadow-xl animate-fade-in">
         <div className="flex items-center gap-2 mb-4 pb-2 border-b border-slate-800">
           <Database className="w-5 h-5 text-emerald-400" />
-          <h3 className="font-extrabold text-white text-base">Spreadsheet Record Inspection (First 10 rows)</h3>
+          <h3 className="font-extrabold text-white text-base">Data Preview (First 10 rows)</h3>
         </div>
         <p className="text-xs text-slate-400 mb-4 font-medium">
           Live workspace rows rendering after processing operations are compiled. Select tabs above to proceed.
