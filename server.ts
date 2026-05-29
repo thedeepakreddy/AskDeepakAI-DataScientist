@@ -1,3 +1,8 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
 import express from 'express';
 import path from 'path';
 import { GoogleGenAI, Type } from '@google/genai';
@@ -27,36 +32,95 @@ function getGeminiClient(): GoogleGenAI {
   return aiClient;
 }
 
+// Highly resilient wrapper function to manage transient service errors (503 UNAVAILABLE, 429 timeouts),
+// with automatic backoff retry & seamless fallback to high-availability lite models.
+async function generateContentWithRetry(client: GoogleGenAI, params: {
+  contents: any;
+  config?: any;
+}) {
+  const modelsToTry = ['gemini-3.5-flash', 'gemini-3.1-flash-lite'];
+  let lastError: any = null;
+
+  for (const model of modelsToTry) {
+    let attempts = 3;
+    let delay = 600; // start with 600ms backoff delay
+    
+    while (attempts > 0) {
+      try {
+        console.log(`[AskDeepakAI Gemini Client] Querying model "${model}" (retries available: ${attempts})...`);
+        const response = await client.models.generateContent({
+          model: model,
+          contents: params.contents,
+          config: params.config,
+        });
+        if (response) {
+          console.log(`[AskDeepakAI Gemini Client] Loaded analytical response successfully from model: "${model}"`);
+          return response;
+        }
+      } catch (err: any) {
+        lastError = err;
+        const errMsg = (err?.message || String(err)).toLowerCase();
+        
+        // Match standard highly loaded/throttled or service error patterns
+        const isTemporary = errMsg.includes('503') || 
+                            errMsg.includes('500') || 
+                            errMsg.includes('429') || 
+                            errMsg.includes('unavailable') || 
+                            errMsg.includes('overloaded') ||
+                            errMsg.includes('high demand') ||
+                            errMsg.includes('rate limit');
+        
+        if (isTemporary && attempts > 1) {
+          console.log(`[AskDeepakAI Gemini Client] Service is busy at peak load. Auto-retrying connection in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+          delay *= 2.2; // robust factor for exponential backoff retry interval
+          attempts--;
+        } else {
+          console.log(`[AskDeepakAI Gemini Client] Pipeline status checked on "${model}". Advancing fallback options...`);
+          break; // break loop to advance to the next candidate model
+        }
+      }
+    }
+  }
+
+  throw lastError || new Error('GenerateContent failed across all primary and secondary fallback models');
+}
+
 // 1. DATASET ANALYSIS & AUTOMATED MODEL RECOMMENDATION
 app.post('/api/analyze-dataset', async (req, res) => {
-  try {
-    const { filename, columns, rowCount } = req.body;
-    
-    const client = getGeminiClient();
-    const hasKey = !!process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'MY_GEMINI_API_KEY';
+  const { filename, columns, rowCount } = req.body || {};
+  
+  const safeFilename = typeof filename === 'string' ? filename : 'dataset.csv';
+  const safeRowCount = typeof rowCount === 'number' ? rowCount : 0;
+  const safeColumns = Array.isArray(columns) ? columns : [];
 
-    if (!hasKey) {
-      // Offline high-quality fallback representation
-      const columnsJson = JSON.stringify(columns);
-      const isChurn = filename.toLowerCase().includes('churn');
-      const isSaas = filename.toLowerCase().includes('saas') || columnsJson.includes('Recurring');
-      
-      let fallbackResponse;
-      if (isChurn) {
-        fallbackResponse = getChurnAnalysisFallback(filename, rowCount);
-      } else if (isSaas) {
-        fallbackResponse = getSaasAnalysisFallback(filename, rowCount);
-      } else {
-        fallbackResponse = getDefaultAnalysisFallback(filename, columns, rowCount);
-      }
-      res.json(fallbackResponse);
-      return;
+  const columnsJson = JSON.stringify(safeColumns);
+  const isChurn = safeFilename.toLowerCase().includes('churn');
+  const isSaas = safeFilename.toLowerCase().includes('saas') || columnsJson.includes('Recurring');
+
+  const getFallback = () => {
+    if (isChurn) {
+      return getChurnAnalysisFallback(safeFilename, safeRowCount);
+    } else if (isSaas) {
+      return getSaasAnalysisFallback(safeFilename, safeRowCount);
+    } else {
+      return getDefaultAnalysisFallback(safeFilename, safeColumns, safeRowCount);
     }
+  };
 
+  const client = getGeminiClient();
+  const hasKey = !!process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'MY_GEMINI_API_KEY' && process.env.GEMINI_API_KEY !== 'DUMMY_KEY_FALLBACK';
+
+  if (!hasKey) {
+    console.log('[AskDeepakAI] No API Key configuration. Using offline dataset analytical falls.');
+    return res.json(getFallback());
+  }
+
+  try {
     const prompt = `You are a top-tier Data Science and Automation Agent. Analyze this uploaded dataset metadata:
-Dataset Filename: "${filename}"
-Total Rows: ${rowCount}
-Columns Configuration: ${JSON.stringify(columns)}
+Dataset Filename: "${safeFilename}"
+Total Rows: ${safeRowCount}
+Columns Configuration: ${JSON.stringify(safeColumns)}
 
 Generate a complete, high-intelligence structural analysis and automated layout report matching this exactly:
 1. "overviewSummary": Exhaustive, professional 2-sentence summary of the dataset's nature and potential business value.
@@ -69,8 +133,7 @@ Generate a complete, high-intelligence structural analysis and automated layout 
 
 Respond strict JSON following the database schema structure.`;
 
-    const aiResponse = await client.models.generateContent({
-      model: 'gemini-3.5-flash',
+    const aiResponse = await generateContentWithRetry(client, {
       contents: prompt,
       config: {
         responseMimeType: 'application/json',
@@ -98,35 +161,43 @@ Respond strict JSON following the database schema structure.`;
     });
 
     const parsedData = JSON.parse(aiResponse.text || '{}');
-    res.json(parsedData);
-
-  } catch (error: any) {
-    console.error('Error analyzing dataset:', error);
-    res.status(500).json({ error: error.message || 'Error occurred during AI analysis' });
+    return res.json(parsedData);
+  } catch (apiError: any) {
+    console.error('[AskDeepakAI Gemini Client] Error during dataset scan:', apiError);
+    return res.status(500).json({ error: apiError.message || String(apiError) });
   }
 });
 
 // 2. MACHINE LEARNING MODELLER & STAKEHOLDER REPORT
 app.post('/api/run-ml-prediction', async (req, res) => {
+  const { target, features, modelType, hyperparameters, datasetColumns, datasetRowsSample } = req.body || {};
+
+  const safeTarget = typeof target === 'string' ? target : 'target';
+  const safeFeatures = Array.isArray(features) ? features.filter(f => typeof f === 'string') : [];
+  const safeModelType = typeof modelType === 'string' ? modelType : 'regression';
+  const safeHyperparameters = hyperparameters && typeof hyperparameters === 'object' ? hyperparameters : {};
+  const safeDatasetColumns = Array.isArray(datasetColumns) ? datasetColumns : [];
+  const safeDatasetRowsSample = Array.isArray(datasetRowsSample) ? datasetRowsSample : [];
+
+  const getSimulatedResponse = () => {
+    return simulateMLRunAndReport(safeTarget, safeFeatures, safeModelType, safeHyperparameters, safeDatasetColumns, safeDatasetRowsSample);
+  };
+
+  const client = getGeminiClient();
+  const hasKey = !!process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'MY_GEMINI_API_KEY' && process.env.GEMINI_API_KEY !== 'DUMMY_KEY_FALLBACK';
+
+  if (!hasKey) {
+    console.log('[AskDeepakAI] No API key detected. Deploying direct smart forecast simulation report.');
+    return res.json(getSimulatedResponse());
+  }
+
   try {
-    const { target, features, modelType, hyperparameters, datasetColumns, datasetRowsSample } = req.body;
-
-    const client = getGeminiClient();
-    const hasKey = !!process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'MY_GEMINI_API_KEY';
-
-    if (!hasKey) {
-      // Smart prediction fallback using deterministic mock regression or classification
-      const response = simulateMLRunAndReport(target, features, modelType, hyperparameters, datasetColumns, datasetRowsSample);
-      res.json(response);
-      return;
-    }
-
     const prompt = `You are an expert Machine Learning engineer and Business Advisor. A user has built a Machine Learning Pipeline on their cleaned dataset:
-- Target Variable Selected: "${target}"
-- Feature Variables: ${JSON.stringify(features)}
-- ML Model Class Requested: ${modelType}
-- Configured Hyperparameters: ${JSON.stringify(hyperparameters)}
-- Data Sample Info (Columns & types): ${JSON.stringify(datasetColumns)}
+- Target Variable Selected: "${safeTarget}"
+- Feature Variables: ${JSON.stringify(safeFeatures)}
+- ML Model Class Requested: ${safeModelType}
+- Configured Hyperparameters: ${JSON.stringify(safeHyperparameters)}
+- Data Sample Info (Columns & types): ${JSON.stringify(safeDatasetColumns)}
 
 We need you to generate:
 1. Model hyperparameter tuning path (3 training trials with different parameter variations and output scores).
@@ -138,8 +209,7 @@ We need you to generate:
 
 Respond strictly with a JSON object.`;
 
-    const aiResponse = await client.models.generateContent({
-      model: 'gemini-3.5-flash',
+    const aiResponse = await generateContentWithRetry(client, {
       contents: prompt,
       config: {
         responseMimeType: 'application/json',
@@ -165,8 +235,8 @@ Respond strictly with a JSON object.`;
                 type: Type.OBJECT,
                 required: ['feature', 'score'],
                 properties: {
-                  feature: { type: Type.STRING },
-                  score: { type: Type.NUMBER }
+                   feature: { type: Type.STRING },
+                   score: { type: Type.NUMBER }
                 }
               }
             },
@@ -224,19 +294,18 @@ Respond strictly with a JSON object.`;
     const body = JSON.parse(aiResponse.text || '{}');
     
     // Inject realistic predictions coordinate points for visualization (Actual vs Predicted scatter or residual series)
-    const predictions = generatePredictionsForTarget(target, features, modelType, datasetRowsSample || []);
+    const predictions = generatePredictionsForTarget(safeTarget, safeFeatures, safeModelType, safeDatasetRowsSample);
     
-    res.json({
-      modelType,
-      modelAlgorithm: modelType === 'classification' ? 'RandomForestClassifier' : 'GradientBoostingRegressor',
-      hyperparameters: hyperparameters || {},
+    return res.json({
+      modelType: safeModelType,
+      modelAlgorithm: safeModelType === 'classification' ? 'RandomForestClassifier' : 'GradientBoostingRegressor',
+      hyperparameters: safeHyperparameters,
       ...body,
       predictions
     });
-
-  } catch (error: any) {
-    console.error('ML Pipeline Error:', error);
-    res.status(500).json({ error: error.message || 'Error occurred during ML modelling' });
+  } catch (apiError: any) {
+    console.error('[AskDeepakAI Gemini Client] Error during ML pipeline run:', apiError);
+    return res.status(500).json({ error: apiError.message || String(apiError) });
   }
 });
 
@@ -458,6 +527,7 @@ The optimized modeling configuration utilizes standard hyperparameter parameters
 
 function generatePredictionsForTarget(target: string, features: string[], modelType: string, rows: any[]) {
   const isClassification = modelType === 'classification' || target.toLowerCase().includes('churn') || target.toLowerCase().includes('fail');
+  const targetTypeNumeric = rows.length > 0 && typeof rows[0][target] === 'number';
 
   return rows.slice(0, 30).map((row, index) => {
     // Generate actual vs predicted values logically linked
