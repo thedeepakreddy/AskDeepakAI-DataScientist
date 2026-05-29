@@ -459,11 +459,6 @@ export default function App() {
       {/* Footer Status Bar matching the design precisely */}
       <footer className="h-12 sm:h-10 bg-[#07090E]/90 border-t border-slate-800 px-6 flex flex-col sm:flex-row items-center justify-between gap-2 py-2 sm:py-0 shrink-0 text-slate-400 text-[11px] font-mono select-none z-30">
         <div className="flex items-center gap-5">
-          <span className="flex items-center gap-1.5 text-slate-500">
-            <span className="w-2 h-2 rounded-full bg-indigo-550 inline-block"></span>
-            ENV: <strong className="text-slate-400">STREAMLIT_DEV_INST</strong>
-          </span>
-          <span className="text-slate-705">|</span>
           <span className="text-slate-500">
             METRICS COMPILIER: <strong className="text-slate-400">active</strong>
           </span>
