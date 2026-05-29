@@ -99,12 +99,18 @@ export default function App() {
         })
       });
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'Backend analysis failed');
+      const resText = await res.text();
+      let parsed;
+      try {
+        parsed = resText ? JSON.parse(resText) : {};
+      } catch (parseErr) {
+        throw new Error(`Invalid response from analysis server: ${resText.slice(0, 150) || 'empty response'}`);
       }
 
-      const parsed = await res.json();
+      if (!res.ok) {
+        throw new Error(parsed?.error || 'Backend analysis failed');
+      }
+
       setAiAnalysis(parsed);
     } catch (err: any) {
       console.error(err);
@@ -142,12 +148,18 @@ export default function App() {
         })
       });
 
-      if (!res.ok) {
-        const err = await res.json();
-        throw new Error(err.error || 'ML pipeline processing failed');
+      const resText = await res.text();
+      let result;
+      try {
+        result = resText ? JSON.parse(resText) : {};
+      } catch (parseErr) {
+        throw new Error(`Invalid response from model pipeline server: ${resText.slice(0, 150) || 'empty response'}`);
       }
 
-      const result = await res.json();
+      if (!res.ok) {
+        throw new Error(result?.error || 'ML pipeline processing failed');
+      }
+
       setMlResult(result);
       return result;
     } catch (err: any) {
@@ -244,7 +256,7 @@ export default function App() {
               { id: 'clean', step: '02', label: 'Clean', icon: Layers, status: activeDataset ? 'unlocked' : 'locked' },
               { id: 'eda', step: '03', label: 'EDA Scan', icon: Compass, status: activeDataset ? 'unlocked' : 'locked' },
               { id: 'ml', step: '04', label: 'Modeling', icon: Cpu, status: activeDataset ? 'unlocked' : 'locked' },
-              { id: 'dashboard', step: '05', label: 'Portal', icon: Sliders, status: activeDataset ? 'unlocked' : 'locked' },
+              { id: 'dashboard', step: '05', label: 'Dashboard', icon: Sliders, status: activeDataset ? 'unlocked' : 'locked' },
               { id: 'reports', step: '06', label: 'Briefs', icon: Newspaper, status: activeDataset ? 'unlocked' : 'locked' },
             ].map((tab) => {
               const isSelected = activeTab === tab.id;
@@ -289,7 +301,7 @@ export default function App() {
                 { id: 'clean', step: '02', label: 'Cleaning Studio', icon: Layers, status: activeDataset ? 'Unlocked' : 'Locked' },
                 { id: 'eda', step: '03', label: 'Exploratory Data Analysis', icon: Compass, status: activeDataset ? 'Active' : 'Locked' },
                 { id: 'ml', step: '04', label: 'ML Modeling', icon: Cpu, status: activeDataset ? 'Active' : 'Locked' },
-                { id: 'dashboard', step: '05', label: 'Interactive HUD', icon: Sliders, status: activeDataset ? 'Active' : 'Locked' },
+                { id: 'dashboard', step: '05', label: 'Dashboard', icon: Sliders, status: activeDataset ? 'Active' : 'Locked' },
                 { id: 'reports', step: '06', label: 'Strategic Insights', icon: Newspaper, status: activeDataset ? 'Active' : 'Locked' },
               ].map((tab) => {
                 const isSelected = activeTab === tab.id;
