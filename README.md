@@ -1,4 +1,4 @@
-#  AskDeepakAI - Data Scientist Agent
+# AskDeepakAI - Data Scientist Agent
 > Interactive, telemetry-free Data Science Workstation & Automated Machine Learning modeling engine powered by Google Gemini.
 
 ---
@@ -118,7 +118,7 @@ To test, debug, or run the application on your computer:
 
 ---
 
-## 🌐 Deploying to Render.com (Production)
+##  Deploying to Render.com (Production)
 
 > **Architectural Note**: Python apps use Streamlit; full-stack TypeScript apps require standard virtual runtimes. Because **AskDeepakAI** is designed using TypeScript, Node, and React, **Render Web Services** is the perfect hosting environment.
 
@@ -154,7 +154,7 @@ Render will automatically pull the branch, compile your React application bundle
 
 If you encounter errors during CI/CD builds or deployment, apply these standard resolutions:
 
-### 🔴 Case-Sensitivity Import Failures
+###  Case-Sensitivity Import Failures
 *   **Symptom**: Build logs show `Could not resolve "./components/ReportsHub" from "src/App.tsx"`, but compiling locally completes without throwing errors.
 *   **The Cause**: Windows & macOS filesystems are case-insensitive. Linux servers (used on Render) are strictly case-sensitive. If you renamed a component (e.g., from lowercase `reportshub.tsx` to Pascal `ReportsHub.tsx`), Git may keep tracking the older casing inside Remote Indexes.
 *   **The Fix**: Force Git to rebuild the project tracking maps. Run these three commands locally:
@@ -165,7 +165,7 @@ If you encounter errors during CI/CD builds or deployment, apply these standard 
     git push origin main
     ```
 
-### 🟡 Rollup: "failed to resolve import 'recharts' from '...' "
+###  Rollup: "failed to resolve import 'recharts' from '...' "
 *   **Symptom**: Render build logs show `Rollup failed to resolve import "recharts"` and aborts.
 *   **The Cause**: The lockfile configuration is out-of-sync or `package-lock.json` contains stale cached entry definitions from a previous install attempt during development.
 *   **The Fix**: Clean reinstall and push. Run this locally inside your directory:
@@ -182,7 +182,7 @@ If you encounter errors during CI/CD builds or deployment, apply these standard 
     git push origin main
     ```
 
-### 🔵 Server Listening & Port Binding Failures
+###  Server Listening & Port Binding Failures
 *   **Symptom**: Render logs say `Port 3000 is occupied` or shows deployment timeouts.
 *   **The Cause**: Web host dynamically provisions active ports using `process.env.PORT`. Hardcoding port `3000` causes binds to fail.
 *   **The Fix**: Our custom Express code utilizes the environment port variable automatically falls back to `3000` locally:
