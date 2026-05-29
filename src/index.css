@@ -35,3 +35,21 @@
   --color-emerald-500: #29bbfd;
 }
 
+/* Prevent layout breakouts and text overflow box issues globally across all dynamic pages */
+body, html {
+  max-width: 100vw;
+  overflow-x: hidden;
+}
+
+/* Ensure long words and dynamic labels wrap securely without overflowing container walls */
+p, span, h1, h2, h3, h4, h5, h6, select, option, button, th, td, label, blockquote, font {
+  word-break: break-word;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+}
+
+/* Flexible and responsive charts */
+.recharts-responsive-container {
+  max-width: 100% !important;
+}
+
