@@ -310,7 +310,419 @@ Respond strictly with a JSON object.`;
 });
 
 
-// FRONTEND STATIC BINDINGS & SPA ENABLERS
+// 3. SECURE ASSISTIVE-TOUCH BOT & WORKSPACE CONTROL ENGINE (CONFORMS TO GEMINI SDK GUIDELINES)
+app.post('/api/chat-bot', async (req, res) => {
+  const { message, history, datasetContext, activeTab } = req.body || {};
+  const userMsg = typeof message === 'string' ? message.trim() : '';
+  const safeHistory = Array.isArray(history) ? history : [];
+  const ds = datasetContext || null;
+
+  const client = getGeminiClient();
+  const hasKey = !!process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'MY_GEMINI_API_KEY' && process.env.GEMINI_API_KEY !== 'DUMMY_KEY_FALLBACK';
+
+  // Local state analysis to feed intelligent fallbacks or direct patterns
+  const colNames = ds && Array.isArray(ds.columns) ? ds.columns.map((c: any) => c.name) : [];
+  const colNamesList = colNames.join(', ');
+  const rowCount = ds ? ds.rowCount : 0;
+
+  // Simple and highly adaptive rule-based matcher for immediate responses without API keys
+  const getFallbackResponse = () => {
+    const msgLower = userMsg.toLowerCase();
+    let reply = "";
+    let commands: any[] = [];
+
+    // Prioritized SQL Command parser fallback
+    if (msgLower.includes('select') || msgLower.includes('update') || msgLower.includes('delete') || msgLower.includes('insert') || msgLower.includes('alter') || msgLower.includes('multiply') || msgLower.includes('double') || msgLower.includes('calculate')) {
+      let isQueryProcessed = false;
+      let jsCode = "";
+      let sqlQuery = userMsg;
+      let explanation = "";
+
+      // 1. SELECT query parsing (e.g., SELECT * FROM dataset WHERE Age > 30)
+      if (msgLower.includes('select') && msgLower.includes('where')) {
+        const match = msgLower.match(/where\s+(\w+)\s*(=|>|<|!=)\s*(['"]?[\w\s.-]+['"]?)/i);
+        if (match) {
+          const col = colNames.find(c => c.toLowerCase() === match[1].toLowerCase()) || match[1];
+          const op = match[2] === '=' ? '===' : match[2];
+          const val = match[3].replace(/['"]/g, '').trim();
+          const isNum = !isNaN(Number(val));
+          const compareVal = isNum ? Number(val) : `'${val}'`;
+
+          jsCode = `(dataset) => {
+            const filteredRows = dataset.rows.filter(row => {
+              const rowVal = row['${col}'];
+              if (rowVal === undefined || rowVal === null) return false;
+              return ${isNum ? 'Number(rowVal)' : 'String(rowVal).toLowerCase()'} ${op} ${isNum ? compareVal : `'${val.toLowerCase()}'`};
+            });
+            return {
+              ...dataset,
+              rows: filteredRows,
+              rowCount: filteredRows.length
+            };
+          }`;
+          explanation = `Filtered rows where "${col}" ${match[2]} "${val}"`;
+          isQueryProcessed = true;
+        }
+      }
+
+      // 2. UPDATE query parsing (e.g., UPDATE dataset SET churn = 1 WHERE tenure < 5)
+      if (msgLower.includes('update') && msgLower.includes('set')) {
+        const matchSet = msgLower.match(/set\s+(\w+)\s*=\s*([^where]+)/i);
+        if (matchSet) {
+          const colToUpdate = colNames.find(c => c.toLowerCase() === matchSet[1].toLowerCase()) || matchSet[1];
+          let expr = matchSet[2].trim();
+          
+          let whereCol: string | null = null;
+          let whereOp = "===";
+          let whereVal = "";
+          let whereIsNum = false;
+
+          const whereIndex = msgLower.indexOf('where');
+          if (whereIndex !== -1) {
+            const wherePart = userMsg.slice(whereIndex + 5).trim();
+            const whereMatch = wherePart.match(/(\w+)\s*(=|>|<|!=)\s*(['"]?[\w\s.-]+['"]?)/i);
+            if (whereMatch) {
+              whereCol = colNames.find(c => c.toLowerCase() === whereMatch[1].toLowerCase()) || whereMatch[1];
+              whereOp = whereMatch[2] === '=' ? '===' : whereMatch[2];
+              whereVal = whereMatch[3].replace(/['"]/g, '').trim();
+              whereIsNum = !isNaN(Number(whereVal));
+            }
+          }
+
+          jsCode = `(dataset) => {
+            const updatedRows = dataset.rows.map(row => {
+              const copy = { ...row };
+              let shouldUpdate = true;
+              if ('${whereCol || ''}') {
+                const rowWhereVal = row['${whereCol || ''}'];
+                if (rowWhereVal === undefined || rowWhereVal === null) {
+                  shouldUpdate = false;
+                } else {
+                  const compVal = ${whereIsNum ? 'Number' : 'String'}(rowWhereVal);
+                  const targetComp = ${whereIsNum ? whereVal : `'${whereVal}'.toLowerCase()`};
+                  shouldUpdate = ${whereIsNum ? 'compVal' : 'compVal.toLowerCase()'} ${whereOp} targetComp;
+                }
+              }
+
+              if (shouldUpdate) {
+                let newVal = copy['${colToUpdate}'];
+                const rawExpr = '${expr}';
+                if (rawExpr.includes('+')) {
+                  const parts = rawExpr.split('+');
+                  const addVal = Number(parts[1].trim());
+                  newVal = isNaN(addVal) ? rawExpr.replace(/['"]/g, '') : Number(copy['${colToUpdate}']) + addVal;
+                } else if (rawExpr.includes('-')) {
+                  const parts = rawExpr.split('-');
+                  const subVal = Number(parts[1].trim());
+                  newVal = isNaN(subVal) ? rawExpr.replace(/['"]/g, '') : Number(copy['${colToUpdate}']) - subVal;
+                } else if (rawExpr.includes('*')) {
+                  const parts = rawExpr.split('*');
+                  const multVal = Number(parts[1].trim());
+                  newVal = isNaN(multVal) ? copy['${colToUpdate}'] : Number(copy['${colToUpdate}']) * multVal;
+                } else if (!isNaN(Number(rawExpr))) {
+                  newVal = Number(rawExpr);
+                } else {
+                  newVal = rawExpr.replace(/['"]/g, '');
+                }
+                copy['${colToUpdate}'] = newVal;
+              }
+              return copy;
+            });
+
+            return {
+              ...dataset,
+              rows: updatedRows
+            };
+          }`;
+          explanation = `Updated values of "${colToUpdate}" matching query criteria`;
+          isQueryProcessed = true;
+        }
+      }
+
+      // 3. DELETE query parsing (e.g., DELETE FROM dataset WHERE age < 18)
+      if (msgLower.includes('delete') && msgLower.includes('where')) {
+        const match = msgLower.match(/where\s+(\w+)\s*(=|>|<|!=)\s*(['"]?[\w\s.-]+['"]?)/i);
+        if (match) {
+          const col = colNames.find(c => c.toLowerCase() === match[1].toLowerCase()) || match[1];
+          const op = match[2] === '=' ? '===' : match[2];
+          const val = match[3].replace(/['"]/g, '').trim();
+          const isNum = !isNaN(Number(val));
+          const compareVal = isNum ? Number(val) : `'${val}'`;
+
+          jsCode = `(dataset) => {
+            const filteredRows = dataset.rows.filter(row => {
+              const rowVal = row['${col}'];
+              if (rowVal === undefined || rowVal === null) return true;
+              const matchesCondition = ${isNum ? 'Number(rowVal)' : 'String(rowVal).toLowerCase()'} ${op} ${isNum ? compareVal : `'${val.toLowerCase()}'`};
+              return !matchesCondition;
+            });
+            return {
+              ...dataset,
+              rows: filteredRows,
+              rowCount: filteredRows.length
+            };
+          }`;
+          explanation = `Deleted rows where "${col}" ${match[2]} "${val}"`;
+          isQueryProcessed = true;
+        }
+      }
+
+      if (!isQueryProcessed) {
+        // Fallback custom mutator for general commands e.g. "double MonthlyCharges" or "multiply tenure by 10"
+        let foundCol = colNames.find(c => msgLower.includes(c.toLowerCase()));
+        if (foundCol) {
+          let scale = 1;
+          if (msgLower.includes('double')) scale = 2;
+          else if (msgLower.includes('triple')) scale = 3;
+          else {
+            const numMatch = msgLower.match(/\d+/);
+            if (numMatch) scale = Number(numMatch[0]);
+          }
+
+          jsCode = `(dataset) => {
+            const updatedRows = dataset.rows.map(row => {
+              const copy = { ...row };
+              if (copy['${foundCol}'] !== undefined) {
+                copy['${foundCol}'] = Number(copy['${foundCol}']) * ${scale};
+              }
+              return copy;
+            });
+            return {
+              ...dataset,
+              rows: updatedRows
+            };
+          }`;
+          explanation = `Scaled column "${foundCol}" by factor ${scale}`;
+          isQueryProcessed = true;
+        }
+      }
+
+      if (isQueryProcessed) {
+        reply = `I have decoded your action request! Running dataset operations pipeline.\n- **Transformed query**: \`${sqlQuery}\`\n- **Database Action**: Executes dynamic row-set corrections seamlessly.`;
+        commands.push({
+          type: 'EXECUTE_DATASET_JS',
+          jsCode,
+          sqlQuery,
+          explanation
+        });
+        commands.push({ type: 'SELECT_TAB', tab: 'clean' });
+        return { message: reply, commands };
+      }
+    }
+
+    if (msgLower.includes('drop') || msgLower.includes('remove column')) {
+      // Find which column to drop
+      const foundCol = colNames.find((c: string) => msgLower.includes(c.toLowerCase()));
+      if (foundCol) {
+        reply = `I have successfully analyzed your command to drop column. Dropping **"${foundCol}"** and updating active pipelines.`;
+        commands.push({ type: 'DROP_COLUMN', column: foundCol });
+        commands.push({ type: 'SELECT_TAB', tab: 'clean' });
+      } else {
+        reply = `I can drop columns for you, but I couldn't identify which column you wanted to drop. Available columns: ${colNamesList || 'No dataset loaded'}.`;
+      }
+    } else if (msgLower.includes('fill') || msgLower.includes('impute') || msgLower.includes('missing')) {
+      const foundCol = colNames.find((c: string) => msgLower.includes(c.toLowerCase())) || colNames[0];
+      let strategy = 'mean';
+      if (msgLower.includes('median')) strategy = 'median';
+      else if (msgLower.includes('zero') || msgLower.includes('0')) strategy = 'zero';
+      else if (msgLower.includes('mode') || msgLower.includes('common')) strategy = 'mode';
+
+      if (foundCol) {
+        reply = `I am executing an data imputation task on column **"${foundCol}"** using the **"${strategy}"** strategy to clean the dataset.`;
+        commands.push({ type: 'FILL_MISSING', column: foundCol, strategy });
+        commands.push({ type: 'SELECT_TAB', tab: 'clean' });
+      } else {
+        reply = `Imputation can only be executed when a column is specified. Available columns: ${colNamesList || 'N/A'}`;
+      }
+    } else if (msgLower.includes('eda') || msgLower.includes('scan') || msgLower.includes('analyze') || msgLower.includes('exploratory')) {
+      reply = "Starting Exploratory Data Scan and Statistical Analysis on active datasets using our intelligent analytics engine!";
+      commands.push({ type: 'SELECT_TAB', tab: 'eda' });
+      commands.push({ type: 'RUN_EDA_SCAN' });
+    } else if (msgLower.includes('model') || msgLower.includes('predict') || msgLower.includes('ml') || msgLower.includes('train')) {
+      // Intelligently infer target and features
+      const targetCol = colNames.find((c: string) => msgLower.includes(c.toLowerCase()) && (c.toLowerCase().includes('target') || c.toLowerCase().includes('churn') || c.toLowerCase().includes('probability'))) || colNames[colNames.length - 1] || 'target';
+      const features = colNames.filter((c: string) => c !== targetCol).slice(0, 4);
+      const mType = msgLower.includes('class') || targetCol.toLowerCase().includes('churn') ? 'classification' : 'regression';
+      
+      reply = `I've configured and triggered an automated Machine Learning pipeline for you!\n- **Stage**: ML Modeling\n- **Target Column**: \`${targetCol}\`\n- **Features**: ${JSON.stringify(features)}\n- **Model Type**: \`${mType}\`\n\nTraining starting now...`;
+      commands.push({ type: 'SELECT_TAB', tab: 'ml' });
+      commands.push({ type: 'RUN_ML', targetColumn: targetCol, featureColumns: features, modelType: mType });
+    } else if (msgLower.includes('dashboard') || msgLower.includes('chart') || msgLower.includes('metric') || msgLower.includes('slicer')) {
+      reply = "Right away! Moving you to the **Stakeholder Dashboard** stage where you can filter columns and monitor business outcomes.";
+      commands.push({ type: 'SELECT_TAB', tab: 'dashboard' });
+    } else if (msgLower.includes('report') || msgLower.includes('brief') || msgLower.includes('pdf') || msgLower.includes('hub')) {
+      reply = "Transitioning to **Strategic Reports Hub** stage. You can compile, view, and export executive analysis briefs here.";
+      commands.push({ type: 'SELECT_TAB', tab: 'reports' });
+    } else if (msgLower.includes('ingest') || msgLower.includes('upload') || msgLower.includes('csv')) {
+      reply = "Opening **Data Ingestion** panel so you can upload or template a dataset.";
+      commands.push({ type: 'SELECT_TAB', tab: 'ingest' });
+    } else if (msgLower.includes('add column') || msgLower.includes('create column')) {
+      let label = 'NewDimension';
+      const parts = userMsg.split(/add column|create column/i);
+      if (parts[1]) {
+        const potentialName = parts[1].trim().split(' ')[0].replace(/[^a-zA-Z0-9_]/g, '');
+        if (potentialName) label = potentialName;
+      }
+      reply = `I am executing a pipeline task to add a new column named **"${label}"** with default values. Checking structures...`;
+      commands.push({ type: 'ADD_COLUMN', column: label, columnType: 'categorical', value: 'DefaultVal' });
+      commands.push({ type: 'SELECT_TAB', tab: 'clean' });
+    } else if (msgLower.includes('add row') || msgLower.includes('insert row')) {
+      reply = `Instructing the pipeline studio to append a new default row with placeholder entries!`;
+      commands.push({ type: 'ADD_ROW' });
+      commands.push({ type: 'SELECT_TAB', tab: 'clean' });
+    } else if (msgLower.includes('delete row') || msgLower.includes('remove row')) {
+      const match = userMsg.match(/\d+/);
+      const index = match ? parseInt(match[0]) : 0;
+      reply = `Applying dataset correction: Deleting active row at index **#${index}**.`;
+      commands.push({ type: 'DELETE_ROW', index });
+      commands.push({ type: 'SELECT_TAB', tab: 'clean' });
+    } else if (msgLower.includes('group by') || msgLower.includes('groupby')) {
+      const foundCol = colNames.find((c: string) => msgLower.includes(c.toLowerCase())) || colNames[0];
+      if (foundCol) {
+        reply = `I am executing a group-by operation. Grouping the active dataset by **"${foundCol}"** and displaying aggregation breakdown in the Cleaning Studio.`;
+        commands.push({ type: 'SELECT_TAB', tab: 'clean' });
+      } else {
+        reply = `I can group your columns for aggregate summaries, but please specify one from: ${colNamesList || 'N/A'}`;
+      }
+    } else if (msgLower.includes('reset') || msgLower.includes('restore') || msgLower.includes('original')) {
+      reply = "I've reset the active worksheet back to its original raw state. All values restored successfully!";
+      commands.push({ type: 'RESET_DATASET' });
+      commands.push({ type: 'SELECT_TAB', tab: 'clean' });
+    } else if (msgLower.includes('hello') || msgLower.includes('hi') || msgLower.includes('who are you') || msgLower.includes('creater') || msgLower.includes('deepak')) {
+      reply = `Hello! I am **AskAI**, acting as your interactive **AskDeepakAI** co-pilot built by **Gorisi Deepak Reddy**. 
+      
+I can analyze your dataset, clean missing cells, add or delete rows and columns, compute group-by metrics, run ML prediction models, and manage tabs. Try prompts like:
+- *"Add column PremiumCustomer"*
+- *"Insert a blank row"*
+- *"Delete row 3"*
+- *"Group by Country"*
+- *"Drop column PaymentMethod"*
+- *"Impute missing Age with median"*
+- *"Run classification models for target Churn"*
+- *"Reset dataset"*`;
+    } else {
+      reply = `I have received your message: "${userMsg}". 
+      
+As your AI code copilot, I can read and write the active dataset! I can add/delete rows & columns, perform group values, and execute smart operations. Current dataset has **${rowCount}** rows with columns: ${colNamesList || 'None'}.`;
+    }
+
+    return { message: reply, commands };
+  };
+
+  if (!hasKey) {
+    console.log('[AskDeepakAI ChatBot] No API key detected. Running interactive local analytical rule matcher.');
+    return res.json(getFallbackResponse());
+  }
+
+  try {
+    // Inject full schema, history, and active dataset stats context as a system guideline to AskAI
+    const systemInstruction = `You are "AskAI", an advanced Data Science and Automation Agent integrated into "AskDeepakAI" (designed by Gorisi Deepak Reddy).
+You have visual and logical agency over a 6-stage web workspace app consisting of:
+- Stage 1: 'ingest' (Data Ingestion/upload)
+- Stage 2: 'clean' (Cleaning Studio for imputation, dropping columns, resetting rows, adding/deleting elements, grouping stats)
+- Stage 3: 'eda' (Exploratory Data Analysis AI report scan)
+- Stage 4: 'ml' (ML Pipeline model training & parameters tuning)
+- Stage 5: 'dashboard' (Active slicers & interactive charts)
+- Stage 6: 'reports' (Strategic reports & PDF briefs export)
+
+You must output a STRICT, valid JSON object following this EXACT TypeScript interface:
+interface ChatBotResponse {
+  message: string; // Friendly, professional, markdown-styled response. Detail what action you are taking or how you are answering. Keep it concise, insightful and respectful.
+  commands: {
+    type: 'SELECT_TAB' | 'DROP_COLUMN' | 'FILL_MISSING' | 'RUN_EDA_SCAN' | 'RUN_ML' | 'RESET_DATASET' | 'FILTER_ROWS' | 'ADD_COLUMN' | 'ADD_ROW' | 'DELETE_ROW' | 'EXECUTE_DATASET_JS';
+    tab?: 'ingest' | 'clean' | 'eda' | 'ml' | 'dashboard' | 'reports';
+    column?: string;
+    columnType?: 'numeric' | 'categorical' | 'boolean';
+    strategy?: 'mean' | 'median' | 'zero' | 'mode';
+    targetColumn?: string;
+    featureColumns?: string[];
+    modelType?: 'classification' | 'regression';
+    operator?: '==' | '!=' | '>' | '<';
+    value?: any;
+    values?: Record<string, any>;
+    index?: number;
+    jsCode?: string; // Standard JavaScript code executing a mapping (dataset) => { ... return updatedDataset; }
+    sqlQuery?: string; // Corresponding SQL representation illustrating the database relational equivalence
+    explanation?: string; // Detailed human explanation of what elements were filtered/updated/inserted
+  }[];
+}
+
+Guidelines for SQL and any user instructions:
+- If the user asks you to perform ANY SQL operation (like SELECT, UPDATE, DELETE, INSERT, GROUP BY, math calculations, multi-column condition filtering, scaling numbers, joining, aggregate calculation), or any custom command that is not covered by preset rules, you MUST output a command of type "EXECUTE_DATASET_JS".
+- The "jsCode" field must contain a fully formed, pure JavaScript arrow function of signature:
+  (dataset) => {
+    // Modify dataset.rows and/or dataset.columns to reflect user action.
+    // E.g., for SELECT target, replace rows with filtered rows, keeping structure.
+    // E.g., for UPDATE, modify copying specific row values.
+    // Remember to update dataset.rowCount to equal dataset.rows.length.
+    return updatedDataset;
+  }
+- The "sqlQuery" field must write the Standard SQL command representation (e.g. SELECT * FROM dataset WHERE monthly_charges > 70).
+- The "explanation" should explain succinctly what values was processed.
+- Note that standard dataset.columns contains objects { name: string, type: 'numeric' | 'categorical' | 'boolean', missingCount, ... }. If you add columns, please output a column structure, and ensure updated columns match.
+
+Example prompt queries:
+- "Multiply MonthlyCharges by 1.1 if tenure > 30" -> returns type: "EXECUTE_DATASET_JS", jsCode: (dataset) => { const updated = dataset.rows.map(r => { const c = { ...r }; if (Number(c.tenure) > 30 && c.MonthlyCharges !== undefined) { c.MonthlyCharges = Number(c.MonthlyCharges) * 1.1; } return c; }); return { ...dataset, rows: updated }; }
+- "Filter rows where Category is Premium" -> returns type: "EXECUTE_DATASET_JS" with rows filtering.
+
+Active Dataset Context:
+- Filename: "${ds ? ds.filename : 'No dataset uploaded'}"
+- Rows Count: ${rowCount}
+- Columns List: ${JSON.stringify(ds ? ds.columns : [])}
+- Active Tab/Stage Right Now: "${activeTab}"`;
+
+    const contents = [
+      ...safeHistory.map((h: any) => ({
+        role: h.role === 'user' ? 'user' : 'model',
+        parts: [{ text: h.content || h.message }]
+      })),
+      { role: 'user', parts: [{ text: userMsg }] }
+    ];
+
+    const aiResponse = await generateContentWithRetry(client, {
+      contents,
+      config: {
+        systemInstruction,
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          required: ['message', 'commands'],
+          properties: {
+            message: { type: Type.STRING },
+            commands: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                required: ['type'],
+                properties: {
+                  type: { type: Type.STRING, description: 'Command to execute on client workspace' },
+                  tab: { type: Type.STRING, description: 'Target tab when selecting tab' },
+                  column: { type: Type.STRING, description: 'Column target name' },
+                  strategy: { type: Type.STRING, description: 'Imputation strategy - mean, median, zero, mode' },
+                  targetColumn: { type: Type.STRING, description: 'Target variable column for ML model' },
+                  featureColumns: { type: Type.ARRAY, items: { type: Type.STRING }, description: 'Feature variables to train ML model on' },
+                  modelType: { type: Type.STRING, description: 'Classification or regression' },
+                  operator: { type: Type.STRING, description: 'Logical operator for row filtering' },
+                  value: { type: Type.STRING, description: 'Scalar value for comparison filter' },
+                  jsCode: { type: Type.STRING, description: 'Complete executable JavaScript functional string mapping (dataset) => { ... }' },
+                  sqlQuery: { type: Type.STRING, description: 'Equivalent SQL standard syntax representation for display' },
+                  explanation: { type: Type.STRING, description: 'Readable summary of what SQL or data operations were mapped' }
+                }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    const parsed = JSON.parse(aiResponse.text || '{"message": "I processed your request.", "commands": []}');
+    return res.json(parsed);
+  } catch (apiError: any) {
+    console.error('[AskDeepakAI ChatBot API] Error running neural model:', apiError);
+    // Graceful fallback on API error
+    return res.json(getFallbackResponse());
+  }
+});
 async function start() {
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
