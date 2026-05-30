@@ -67,20 +67,24 @@ Try asking me items like:
   const isDragging = useRef(false);
 
   // Responsive state for absolute coordinate snapping representation
-  // Starts safely at a guaranteed visible position relative to typical smaller dimensions,
-  // then instantly adjusts once the component mounts in the true client browser.
-  const [position, setPosition] = useState(() => {
-    const w = typeof window !== 'undefined' ? window.innerWidth : 375;
-    const h = typeof window !== 'undefined' ? window.innerHeight : 667;
-    // Safely position on the right side within screen bounds
-    const buttonSize = 56;
-    const paddingX = 16;
-    const initialX = w > 100 ? w - buttonSize - paddingX : 280;
-    const initialY = h > 200 ? h - 185 : 450;
-    return { x: initialX, y: initialY };
-  });
+  // Starts safely at a guaranteed visible status, then snaps instantly relative to true client viewport on mount
+  const [position, setPosition] = useState({ x: 100, y: 100 });
 
-  // Dynamic progressive clamping helper to keep button 100% visible at all times
+  // 1. Force position to the absolute right side of the actual browser screen on mount
+  useEffect(() => {
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    if (w > 50 && h > 50) {
+      const buttonSize = 56;
+      const paddingX = 16;
+      setPosition({
+        x: w - buttonSize - paddingX, // force right edge on initial mount
+        y: Math.max(85, Math.min(h - 110 - buttonSize, h - 185)) // safe bottom right
+      });
+    }
+  }, []);
+
+  // 2. Continuous smart clamping to keep the button fully visible and snapped to the nearest edge
   useEffect(() => {
     const clampToVisibleScreen = () => {
       const w = window.innerWidth;
@@ -91,23 +95,16 @@ Try asking me items like:
           const buttonSize = 56;
           const paddingX = 16;
           const headerHeight = 85;
-          const footerHeight = 100;
+          const footerHeight = 110;
 
-          // Clamped X coordinates
-          const maxX = w - buttonSize - paddingX;
-          const minX = paddingX;
-          let targetX = prev.x;
-          if (prev.x > maxX || prev.x < minX || prev.x + buttonSize > w) {
-            targetX = maxX; // Snap back to nearest edge/right side
-          }
+          // Determine nearest edge based on previous absolute coordinates relative to the updated screen midX
+          const midX = w / 2;
+          const targetX = prev.x < midX ? paddingX : w - buttonSize - paddingX;
 
           // Clamped Y coordinates
           const maxY = h - footerHeight - buttonSize;
           const minY = headerHeight;
-          let targetY = prev.y;
-          if (prev.y > maxY || prev.y < minY || prev.y + buttonSize > h) {
-            targetY = maxY; // Align near bottom safely
-          }
+          const targetY = Math.max(minY, Math.min(maxY, prev.y));
 
           if (targetX !== prev.x || targetY !== prev.y) {
             return { x: targetX, y: targetY };
@@ -117,14 +114,11 @@ Try asking me items like:
       }
     };
 
-    // run immediately on client mount
-    clampToVisibleScreen();
-
     // Listen to resize events
     window.addEventListener('resize', clampToVisibleScreen);
 
     // Progressive checking intervals to compensate for slow loads, sub-iframes, and dynamic viewports on Render
-    const checks = [50, 150, 450, 950, 2000, 4500];
+    const checks = [100, 300, 600, 1200, 2500, 4500];
     const timers = checks.map(t => setTimeout(clampToVisibleScreen, t));
 
     return () => {
