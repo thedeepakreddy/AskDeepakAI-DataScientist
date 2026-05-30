@@ -53,3 +53,118 @@ p, span, h1, h2, h3, h4, h5, h6, select, option, button, th, td, label, blockquo
   max-width: 100% !important;
 }
 
+/* --- Crazy 3D Live Assistive Touch Logo Animations --- */
+
+@keyframes live-3d-spin {
+  0% {
+    transform: perspective(600px) rotateY(0deg) rotateX(20deg) rotateZ(0deg);
+  }
+  50% {
+    transform: perspective(600px) rotateY(180deg) rotateX(-20deg) rotateZ(15deg);
+  }
+  100% {
+    transform: perspective(600px) rotateY(360deg) rotateX(20deg) rotateZ(360deg);
+  }
+}
+
+@keyframes live-ring-1 {
+  0% {
+    transform: perspective(600px) rotateX(70deg) rotateY(0deg) rotateZ(0deg);
+  }
+  100% {
+    transform: perspective(600px) rotateX(70deg) rotateY(0deg) rotateZ(360deg);
+  }
+}
+
+@keyframes live-ring-2 {
+  0% {
+    transform: perspective(600px) rotateX(-45deg) rotateY(0deg) rotateZ(360deg);
+  }
+  100% {
+    transform: perspective(600px) rotateX(-45deg) rotateY(0deg) rotateZ(0deg);
+  }
+}
+
+@keyframes live-ring-3 {
+  0% {
+    transform: perspective(600px) rotateX(20deg) rotateY(70deg) rotateZ(0deg);
+  }
+  100% {
+    transform: perspective(600px) rotateX(20deg) rotateY(70deg) rotateZ(360deg);
+  }
+}
+
+@keyframes neon-breath-glowing {
+  0%, 100% {
+    box-shadow: 0 0 10px #3bc8c850, inset 0 0 5px #3bc8c830;
+    border-color: rgba(59, 200, 200, 0.4);
+  }
+  50% {
+    box-shadow: 0 0 25px #1b5bd280, inset 0 0 10px #1b5bd250;
+    border-color: rgba(27, 91, 210, 0.8);
+  }
+}
+
+@keyframes shiny-sheen {
+  0% {
+    left: -150%;
+  }
+  50% {
+    left: 150%;
+  }
+  100% {
+    left: 150%;
+  }
+}
+
+@keyframes quantum-orbit-pulsar {
+  0% {
+    transform: scale(0.9) rotate(0deg);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.1) rotate(180deg);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(0.9) rotate(360deg);
+    opacity: 0.5;
+  }
+}
+
+.animate-live-3d-spin {
+  animation: live-3d-spin 8s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+}
+
+.animate-live-ring-1 {
+  animation: live-ring-1 6s linear infinite;
+}
+
+.animate-live-ring-2 {
+  animation: live-ring-2 5s linear infinite;
+}
+
+.animate-live-ring-3 {
+  animation: live-ring-3 7s linear infinite;
+}
+
+.animate-neon-breath {
+  animation: neon-breath-glowing 3.5s ease-in-out infinite;
+}
+
+.animate-shiny-sheen {
+  animation: shiny-sheen 3s ease-in-out infinite;
+}
+
+.animate-quantum-pulsar {
+  animation: quantum-orbit-pulsar 4s ease-in-out infinite;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+}
+
