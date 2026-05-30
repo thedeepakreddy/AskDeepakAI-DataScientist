@@ -67,51 +67,70 @@ Try asking me items like:
   const isDragging = useRef(false);
 
   // Responsive state for absolute coordinate snapping representation
+  // Starts safely at a guaranteed visible position relative to typical smaller dimensions,
+  // then instantly adjusts once the component mounts in the true client browser.
   const [position, setPosition] = useState(() => {
-    const w = typeof window !== 'undefined' ? window.innerWidth : 1024;
-    const h = typeof window !== 'undefined' ? window.innerHeight : 768;
-    const cachedX = w > 200 ? w - 80 : 300;
-    const cachedY = h > 200 ? h - 180 : 450;
-    return { x: cachedX, y: cachedY };
+    const w = typeof window !== 'undefined' ? window.innerWidth : 375;
+    const h = typeof window !== 'undefined' ? window.innerHeight : 667;
+    // Safely position on the right side within screen bounds
+    const buttonSize = 56;
+    const paddingX = 16;
+    const initialX = w > 100 ? w - buttonSize - paddingX : 280;
+    const initialY = h > 200 ? h - 185 : 450;
+    return { x: initialX, y: initialY };
   });
 
-  // Position properly on mount once the client container dimensions are established
+  // Dynamic progressive clamping helper to keep button 100% visible at all times
   useEffect(() => {
-    const w = window.innerWidth;
-    const h = window.innerHeight;
-    if (w > 200 && h > 200) {
-      setPosition({ x: w - 80, y: h - 185 });
-    } else {
-      setPosition({ x: 300, y: 450 });
-    }
-  }, []);
+    const clampToVisibleScreen = () => {
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      
+      if (w > 50 && h > 50) {
+        setPosition(prev => {
+          const buttonSize = 56;
+          const paddingX = 16;
+          const headerHeight = 85;
+          const footerHeight = 100;
 
-  // Track viewport dimensions on resizing to avoid the button floating off-screen
-  useEffect(() => {
-    const handleResize = () => {
-      setPosition(prev => {
-        const midX = window.innerWidth / 2;
-        const paddingX = 16;
-        const buttonSize = 56;
-        
-        // If the coordinate was negative or too close to 0 on first render, reset it based on current viewport
-        const currentX = prev.x <= 10 ? window.innerWidth - 80 : prev.x;
-        const currentY = prev.y <= 10 ? window.innerHeight - 185 : prev.y;
+          // Clamped X coordinates
+          const maxX = w - buttonSize - paddingX;
+          const minX = paddingX;
+          let targetX = prev.x;
+          if (prev.x > maxX || prev.x < minX || prev.x + buttonSize > w) {
+            targetX = maxX; // Snap back to nearest edge/right side
+          }
 
-        const targetX = currentX < midX 
-          ? paddingX 
-          : window.innerWidth - buttonSize - paddingX;
+          // Clamped Y coordinates
+          const maxY = h - footerHeight - buttonSize;
+          const minY = headerHeight;
+          let targetY = prev.y;
+          if (prev.y > maxY || prev.y < minY || prev.y + buttonSize > h) {
+            targetY = maxY; // Align near bottom safely
+          }
 
-        const headerLimit = 80;
-        const footerLimit = 100;
-        const targetY = Math.max(headerLimit, Math.min(window.innerHeight - footerLimit - buttonSize, currentY));
-
-        return { x: targetX, y: targetY };
-      });
+          if (targetX !== prev.x || targetY !== prev.y) {
+            return { x: targetX, y: targetY };
+          }
+          return prev;
+        });
+      }
     };
 
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    // run immediately on client mount
+    clampToVisibleScreen();
+
+    // Listen to resize events
+    window.addEventListener('resize', clampToVisibleScreen);
+
+    // Progressive checking intervals to compensate for slow loads, sub-iframes, and dynamic viewports on Render
+    const checks = [50, 150, 450, 950, 2000, 4500];
+    const timers = checks.map(t => setTimeout(clampToVisibleScreen, t));
+
+    return () => {
+      window.removeEventListener('resize', clampToVisibleScreen);
+      timers.forEach(clearTimeout);
+    };
   }, []);
 
   // Auto scroll to bottom of chat
@@ -539,8 +558,8 @@ Try asking me items like:
               dragElastic={0.1}
               dragConstraints={dragContainerRef}
               animate={{ x: position.x, y: position.y, scale: 1, opacity: 1 }}
-              initial={{ scale: 0.5, opacity: 0 }}
-              exit={{ scale: 0.5, opacity: 0 }}
+              initial={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 1, opacity: 0 }}
               transition={{
                 type: 'spring',
                 damping: 25,
