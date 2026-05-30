@@ -36,6 +36,7 @@ import EDAReport from './components/EDAReport';
 import MLPipeline from './components/MLPipeline';
 import StakeholderDashboard from './components/StakeholderDashboard';
 import ReportsHub from './components/ReportsHub';
+import AssistiveTouchBot from './components/AssistiveTouchBot';
 
 export default function App() {
   const [originalDataset, setOriginalDataset] = useState<Dataset | null>(null);
@@ -478,6 +479,17 @@ export default function App() {
           STAKEHOLDER READY
         </div>
       </footer>
+      
+      {/* Assistive Touch Dynamic Gemini Co-pilot (Drag and move anywhere, controls all pipeline stages & data) */}
+      <AssistiveTouchBot
+        activeDataset={activeDataset}
+        onUpdateDataset={handleUpdateDataset}
+        onResetOriginal={handleResetOriginal}
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        triggerAIScan={triggerAIScan}
+        triggerPrediction={triggerPrediction}
+      />
 
       {/* About the Creator Modal Dialog */}
       <AnimatePresence>
