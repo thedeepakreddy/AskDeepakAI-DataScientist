@@ -1,4 +1,4 @@
-# AskDeepakAI - Data Scientist Agent
+#  AskDeepakAI - Data Scientist Agent
 > Interactive, telemetry-free Data Science Workstation & Automated Machine Learning modeling engine powered by Google Gemini.
 
 ---
@@ -60,6 +60,38 @@ The workstation follows a modern client-server architecture. Here's how raw inpu
 ### 4. Strategic Stakeholder HUD
 *   **Multi-Metric Senders**: Fast segment slicer panels let you slice complex numerical properties instantly.
 *   **Business Translation Layers**: Auto-generated business indicators, Risk Registers, tactical recommendations, and print-ready executive exports.
+
+---
+
+## 🔘 Interactive AssistiveTouch Bot & 3D Live Logo
+
+The application features an interactive **AssistiveTouch Bot** with a continuous, crazy **3D rotating custom-layered logo** and orbiting holographic ring effect. It remains completely visible and interactive on all devices.
+
+###  Key Enhancements
+*   **Continuous 3D Live Logo Rotation**: The central AskDeepakAI logo continuously rotates in a true 3D perspective with reflective sheen sweeps, specular corner flares, and multi-layered depth translation.
+*   **Double Layer Holographic Rings**: Embedded orbit rings spin in opposed directions around the logo continuously, providing a live futuristic "Quantum Star" aura.
+*   **100% Ubiquitous Visibility Engine**: Incorporates a progressive viewport-clamping and boundary-snapping algorithm that automatically positions and snaps the bot to the nearest screen edge across all screen forms (desktops, laptops, iPhones, Androids, iPads, and deep relative iframe previews).
+*   **Dynamic Drag & Snap**: Users can drag the bot freely. On drop, it snaps gracefully to the nearest side edge, keeping it reachable but out of content layouts.
+
+###  Files to Commit/Upload to GitHub for the AssistiveTouch Module
+To sync these Assistive Touch updates perfectly to your GitHub repository, ensure you upload the following files:
+*   `src/components/AssistiveTouchBot.tsx` - Core component with layout triggers, drag physics, and the 3D-translated logo structure.
+*   `src/index.css` - Animation keyframes (`live-3d-spin`, `live-ring-1`, `live-ring-2`, `live-ring-3`, `neon-breath-glowing`, etc.) and 3D space utility helpers (`preserve-3d`).
+*   `package.json` - Outlines the dependencies.
+
+###  Render, Vercel, and Dependency Configuration
+The interactive AssistiveTouch Bot requires `lucide-react` and `motion`.
+*   **Do I run `npm install lucide-react motion` on Render/Vercel?**
+    No need to run manual commands in the deployment terminals! Simply make sure these packages are added to the `"dependencies"` mapping in your `package.json` file.
+    When you deploy or trigger a rebuild on **Render** (via "Manual Deploy" -> "Clear Cache & Deploy") or **Vercel**, the cloud runtime automatically executes `npm install` and retrieves them based on your `package.json`.
+*   Ensure your `package.json` has these entries (or verify they are listed):
+    ```json
+    "dependencies": {
+      "lucide-react": "^0.x.x",
+      "motion": "^11.x.x",
+      ...
+    }
+    ```
 
 ---
 
@@ -192,7 +224,7 @@ If you encounter errors during CI/CD builds or deployment, apply these standard 
 
 ---
 
-## Git Directory Tracking Policy
+##  Git Directory Tracking Policy
 
 To keep your code changes clean and ensure security, do not commit compiled modules or configuration secrets.
 
