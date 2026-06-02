@@ -25,7 +25,10 @@ import {
   Workflow,
   Brain,
   GitBranch,
-  Database
+  Database,
+  BrainCircuit,
+  ShieldCheck,
+  ShieldAlert
 } from 'lucide-react';
 import {
   BarChart,
@@ -96,6 +99,72 @@ export default function MLPipeline({
 
   // Memoize targets suitability list so we don't restart on minor movements
   const targetRecommendations = React.useMemo(() => evaluateTargetSuitability(dataset), [dataset]);
+
+  // Real-time frontend-side model leakage monitor to protect the modeling stage
+  const leakageAuditResult = React.useMemo(() => {
+    if (!target) return { leakageRisk: 'None' as const, passed: true, issues: [] };
+    
+    const issues: { feature: string; risk: 'High' | 'Medium' | 'Low'; message: string; type: string }[] = [];
+    
+    selectedFeatures.forEach(feat => {
+      const fLower = feat.toLowerCase();
+      
+      // 1. Direct Target Co-existence
+      if (fLower === target.toLowerCase()) {
+        issues.push({
+          feature: feat,
+          risk: 'High',
+          message: 'Direct Self-leakage detected. Target variable is selected as an input feature.',
+          type: 'target_leakage'
+        });
+      }
+
+      // 2. High-Cardinality ID Indicators
+      const isIdName = fLower.includes('id') || fLower === 'pk' || fLower === 'index' || fLower === 'key' || fLower === 'serial' || fLower.includes('uuid') || fLower.includes('hash') || fLower === 'row_num';
+      const colMeta = dataset.columns.find(c => c.name === feat);
+      const uniqueRatio = colMeta ? (colMeta.distinctCount / (dataset.rowCount || 1)) : 0;
+
+      if (isIdName && uniqueRatio > 0.4) {
+        issues.push({
+          feature: feat,
+          risk: 'High',
+          message: `Unique cardinal row identifier keys (${Math.round(uniqueRatio * 100)}% unique) act as overfit memorizers rather than learnable variables.`,
+          type: 'id_leakage'
+        });
+      } else if (uniqueRatio > 0.95 && colMeta && colMeta.type !== 'numeric') {
+        issues.push({
+          feature: feat,
+          risk: 'High',
+          message: `String features with ${Math.round(uniqueRatio * 100)}% unique cardinality trigger record-level leakage.`,
+          type: 'high_cardinality_leakage'
+        });
+      }
+
+      // 3. Constant Variance check
+      if (colMeta && colMeta.type === 'numeric' && colMeta.statistics.stdDev === 0) {
+        issues.push({
+          feature: feat,
+          risk: 'Low',
+          message: 'Feature variance is zero (no predictive value).',
+          type: 'constant_leakage'
+        });
+      }
+    });
+
+    let leakageRisk: 'None' | 'Low' | 'Medium' | 'High' = 'None';
+    const highCount = issues.filter(i => i.risk === 'High').length;
+    const medCount = issues.filter(i => i.risk === 'Medium').length;
+
+    if (highCount > 0) leakageRisk = 'High';
+    else if (medCount > 0) leakageRisk = 'Medium';
+    else if (issues.length > 0) leakageRisk = 'Low';
+
+    return {
+      leakageRisk,
+      passed: highCount === 0,
+      issues
+    };
+  }, [dataset, target, selectedFeatures]);
 
   // Sync suggestion weights when analysis loads
   const aiSuggestedFeaturesStr = JSON.stringify(aiSuggestedFeatures || []);
@@ -247,6 +316,21 @@ export default function MLPipeline({
 
   return (
     <div className="space-y-8 animate-fade-in" id="ml_module">
+      
+      {/* 🚀 Consistent ML Pipeline stage header */}
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900/40 backdrop-blur-md rounded-2xl border border-slate-800/80 p-5 shadow-2xl relative overflow-hidden">
+        <div>
+          <span className="text-[10px] font-bold text-indigo-400 tracking-widest font-mono uppercase">MODEL CONFIGURATION</span>
+          <h2 className="text-xl font-extrabold text-white tracking-tight mt-1">4. Predictive Machine Learning Modeling</h2>
+          <p className="text-xs text-slate-400 mt-1 max-w-xl">
+            Configure neuron distributions, train neural network layers or classifiers, and simulate forecasting capabilities.
+          </p>
+        </div>
+        <span className="bg-[#131B2E]/90 text-indigo-400 text-[10px] font-mono font-bold px-3 py-1 rounded-full border border-indigo-500/30 uppercase tracking-wide flex items-center gap-1.5 shadow-md shrink-0">
+          <BrainCircuit className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
+          ML Pipeline Stage: ACTIVE
+        </span>
+      </div>
       
       {/* 1. EDA RECOMMENDATION BANNER */}
       <div className="bg-gradient-to-r from-indigo-950/80 via-purple-950/40 to-slate-900 border border-indigo-500/25 p-5 sm:p-6 rounded-2xl relative overflow-hidden shadow-2xl">
@@ -434,6 +518,50 @@ export default function MLPipeline({
                   })}
               </div>
             </div>
+
+            {/* Model Leakage Guard Auditing */}
+            <div className={`p-3.5 rounded-xl border transition-all ${
+              leakageAuditResult.leakageRisk === 'High' 
+                ? 'bg-rose-950/25 border-rose-500/30 text-rose-300' 
+                : leakageAuditResult.leakageRisk === 'Medium'
+                ? 'bg-amber-950/20 border-amber-500/30 text-amber-300'
+                : 'bg-emerald-950/20 border-emerald-500/30 text-emerald-300'
+            }`}>
+              <div className="flex items-center gap-2 mb-1.5">
+                {leakageAuditResult.leakageRisk === 'High' ? (
+                  <ShieldAlert className="w-4 h-4 text-rose-500 shrink-0" style={{ color: '#f43f5e' }} />
+                ) : (
+                  <ShieldCheck className="w-4 h-4 text-emerald-405 shrink-0" />
+                )}
+                <span className="text-[10.5px] font-extrabold uppercase tracking-wider font-sans">
+                  Leakage Audit Shield
+                </span>
+                <span className={`ml-auto font-mono text-[9px] font-black px-2 py-0.5 rounded border uppercase ${
+                  leakageAuditResult.leakageRisk === 'High'
+                    ? 'bg-rose-500/10 border-rose-500/20 text-rose-400'
+                    : leakageAuditResult.leakageRisk === 'Medium'
+                    ? 'bg-amber-500/10 border-amber-500/20 text-amber-400'
+                    : 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400'
+                }`}>
+                  {leakageAuditResult.leakageRisk} RISK
+                </span>
+              </div>
+              <p className="text-[10px] leading-relaxed text-slate-300">
+                {leakageAuditResult.passed 
+                  ? 'Audit Passed. Training-split-only normalization and feature sanitization are strictly active to lock out in-sample statistic leakage.'
+                  : 'Leakage Threat Found! High-risk columns are selected. Remove them to prevent overfit memorization.'}
+              </p>
+              {leakageAuditResult.issues.length > 0 && (
+                <div className="mt-2 space-y-1 max-h-[100px] overflow-y-auto pr-1">
+                  {leakageAuditResult.issues.map((issue, idx) => (
+                    <div key={idx} className="text-[9px] bg-slate-950/60 p-1.5 rounded border border-slate-850 font-mono text-slate-350 leading-normal">
+                      <span className="text-rose-450 font-bold uppercase mr-1">[{issue.risk}]</span>
+                      <strong className="text-white">{issue.feature}</strong>: {issue.message}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Section B: Unified Model Parameters Regulator */}
@@ -564,7 +692,7 @@ export default function MLPipeline({
           </div>
 
           {/* Section C: Training Progress Logger and Execution Launch */}
-          <div className="flex flex-col justify-between bg-slate-950 border border-slate-800/80 p-5 rounded-2xl text-white shadow-inner">
+          <div className="flex flex-col justify-between bg-slate-950/40 backdrop-blur-md border border-slate-800/80 p-5 rounded-2xl text-white shadow-inner">
             <div className="space-y-3">
               <h3 className="text-[10px] font-bold uppercase tracking-widest text-indigo-400 flex items-center gap-2 font-mono">
                 <Terminal className="w-4 h-4 text-emerald-400 animate-pulse" /> Simulation Logs
@@ -756,7 +884,7 @@ export default function MLPipeline({
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in">
                 
                 {/* 1. Supervised Evaluation Metrics Card */}
-                <div className="bg-[#0e1422]/90 border border-slate-800 p-6 rounded-2xl flex flex-col justify-between hover:border-slate-700 transition">
+                <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 p-6 rounded-2xl flex flex-col justify-between hover:border-slate-700 transition">
                   <div className="space-y-4">
                     <h4 className="font-extrabold text-white text-xs tracking-wider uppercase font-mono text-indigo-400">Supervised Partition Benchmarks</h4>
                     <div className="grid grid-cols-2 gap-3.5">
@@ -823,7 +951,7 @@ export default function MLPipeline({
                 </div>
 
                 {/* 2. REALTIME PREDICTION ARRAY TABLE GRID */}
-                <div className="bg-[#0e1422]/90 border border-slate-800 p-6 rounded-2xl col-span-2 space-y-4 shadow-xl">
+                <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 p-6 rounded-2xl col-span-2 space-y-4 shadow-xl">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
                     <div>
                       <h4 className="font-extrabold text-white text-sm">Orchestrated Prediction Arrays</h4>
@@ -897,7 +1025,7 @@ export default function MLPipeline({
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in text-[11px]">
                 
                 {/* 1. Clustering and PCA plots */}
-                <div className="bg-[#0e1422]/90 border border-slate-800 p-6 rounded-2xl col-span-2 space-y-4">
+                <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 p-6 rounded-2xl col-span-2 space-y-4">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                     <div>
                       <h4 className="font-extrabold text-white text-sm">Principal Component Analysis (PCA) Coordinates Plot</h4>
@@ -949,7 +1077,7 @@ export default function MLPipeline({
                 </div>
 
                 {/* 2. Density metrics + Centroids map */}
-                <div className="bg-[#0e1422]/90 border border-slate-800 p-6 rounded-2xl flex flex-col justify-between space-y-4">
+                <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 p-6 rounded-2xl flex flex-col justify-between space-y-4">
                   <div className="space-y-4">
                     <h4 className="font-extrabold text-white text-xs tracking-wider uppercase font-mono text-indigo-400">Cluster Density Diagnostics</h4>
                     <div className="grid grid-cols-2 gap-3 font-mono text-center">
@@ -997,7 +1125,7 @@ export default function MLPipeline({
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in text-[11px]">
                 
                 {/* 1. Feature Importance Rankings */}
-                <div className="bg-[#0e1422]/90 border border-slate-800 p-6 rounded-2xl space-y-4">
+                <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 p-6 rounded-2xl space-y-4">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                     <h4 className="font-extrabold text-white text-xs tracking-wider uppercase font-mono text-indigo-400">Feature Importance Weights</h4>
                     <BarChart2 className="w-4 h-4 text-indigo-400 shrink-0" />
@@ -1033,7 +1161,7 @@ export default function MLPipeline({
                 </div>
 
                 {/* 2. Estimators Individual Tree Explorer */}
-                <div className="bg-[#0e1422]/90 border border-slate-800 p-6 rounded-2xl col-span-2 space-y-4 shadow-xl">
+                <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 p-6 rounded-2xl col-span-2 space-y-4 shadow-xl">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
                     <div>
                       <h4 className="font-extrabold text-white text-sm">Individual Weak Learner Estimator Tree Explorer</h4>
@@ -1116,7 +1244,7 @@ export default function MLPipeline({
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 animate-fade-in text-[11px]">
                 
                 {/* 1. Training Epoch Loss curve */}
-                <div className="bg-[#0e1422]/90 border border-slate-800 p-6 rounded-2xl col-span-1 space-y-4">
+                <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 p-6 rounded-2xl col-span-1 space-y-4">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                     <h4 className="font-extrabold text-white text-xs tracking-wider uppercase font-mono text-indigo-400">Epoch Training Loss history</h4>
                     <LineChart className="w-4 h-4 text-indigo-400 shrink-0" />
@@ -1153,7 +1281,7 @@ export default function MLPipeline({
                 </div>
 
                 {/* 2. Neural Net layers blueprint and matrix configs */}
-                <div className="bg-[#0e1422]/90 border border-slate-800 p-6 rounded-2xl col-span-2 space-y-4 shadow-xl">
+                <div className="bg-slate-900/40 backdrop-blur-md border border-slate-800 p-6 rounded-2xl col-span-2 space-y-4 shadow-xl">
                   <div className="flex items-center justify-between border-b border-slate-800 pb-2">
                     <div>
                       <h4 className="font-extrabold text-white text-sm">Neural Network Structure & Layers Diagram</h4>
