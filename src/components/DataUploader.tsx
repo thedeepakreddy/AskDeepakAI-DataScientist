@@ -128,7 +128,7 @@ export default function DataUploader({ onDatasetLoaded, currentDataset }: DataUp
           <div className="w-14 h-14 bg-indigo-500/10 border border-indigo-500/20 rounded-2xl flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform duration-300 shadow-md">
             <Upload className="w-6 h-6 text-indigo-400" />
           </div>
-          <p className="text-sm font-bold text-slate-200">Drag & drop your character delimited file here</p>
+          <p className="text-sm font-bold text-slate-200">Tap Here</p>
           <p className="text-xs text-slate-500 mt-1">or click to securely explore storage directories</p>
           
           <div className="mt-4 max-w-sm mx-auto bg-slate-950/80 hover:bg-slate-950 text-slate-400 py-2 px-4 rounded-xl border border-slate-800/80 font-mono text-[10px] flex items-center justify-center gap-2">
