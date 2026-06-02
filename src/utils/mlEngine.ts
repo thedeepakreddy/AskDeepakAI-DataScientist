@@ -100,6 +100,16 @@ export interface MLPipelineDetails {
   }[];
   serializedModelBase64: string;
   serializedFilename: string;
+  leakageAudit: {
+    leakageRisk: 'None' | 'Low' | 'Medium' | 'High';
+    passed: boolean;
+    issues: {
+      feature: string;
+      risk: 'High' | 'Medium' | 'Low';
+      message: string;
+      type: string;
+    }[];
+  };
 }
 
 /**
@@ -112,6 +122,81 @@ function standardize(vals: number[]): number[] {
   const variance = vals.reduce((v, x) => v + Math.pow(x - mean, 2), 0) / vals.length;
   const std = Math.sqrt(variance) || 1.0;
   return vals.map(x => (x - mean) / std);
+}
+
+/**
+ * Performs explicit, mathematically sound audit to identify and lock out model target/identifier/proxy leakage
+ */
+export function auditModelLeakage(
+  dataset: Dataset,
+  target: string,
+  features: string[]
+): {
+  leakageRisk: 'None' | 'Low' | 'Medium' | 'High';
+  passed: boolean;
+  issues: { feature: string; risk: 'High' | 'Medium' | 'Low'; message: string; type: string }[];
+} {
+  const issues: { feature: string; risk: 'High' | 'Medium' | 'Low'; message: string; type: string }[] = [];
+  const rows = dataset.rows;
+
+  features.forEach(feat => {
+    const fLower = feat.toLowerCase();
+    
+    // 1. Double Target Check
+    if (fLower === target.toLowerCase()) {
+      issues.push({
+        feature: feat,
+        risk: 'High',
+        message: 'Direct Self-leakage detected. Target variable is selected as an input feature.',
+        type: 'target_leakage'
+      });
+    }
+
+    // 2. High-Cardinality Memorization Leakage
+    const isIdName = fLower.includes('id') || fLower === 'pk' || fLower === 'index' || fLower === 'key' || fLower === 'serial' || fLower.includes('uuid') || fLower.includes('hash') || fLower === 'row_num';
+    const colMeta = dataset.columns.find(c => c.name === feat);
+    const uniqueRatio = colMeta ? (colMeta.distinctCount / (dataset.rowCount || 1)) : 0;
+
+    if (isIdName && uniqueRatio > 0.4) {
+      issues.push({
+        feature: feat,
+        risk: 'High',
+        message: `High unique cardinality ID column (${Math.round(uniqueRatio * 100)}% unique values). Models will memorize individual row keys, risking complete overfit with zero out-of-sample generalization.`,
+        type: 'id_leakage'
+      });
+    } else if (uniqueRatio > 0.95 && colMeta && colMeta.type !== 'numeric') {
+      issues.push({
+        feature: feat,
+        risk: 'High',
+        message: `Extremely high cardinality string values (${Math.round(uniqueRatio * 100)}% unique). Classified as record identifiers. MUST be excluded.`,
+        type: 'high_cardinality_leakage'
+      });
+    }
+
+    // 3. Zero Variance Constant columns
+    if (colMeta && colMeta.type === 'numeric' && colMeta.statistics.stdDev === 0) {
+      issues.push({
+        feature: feat,
+        risk: 'Low',
+        message: 'Constant feature detected (zero variance). Adds dimensional noise without mathematical utility.',
+        type: 'constant_leakage'
+      });
+    }
+  });
+
+  let leakageRisk: 'None' | 'Low' | 'Medium' | 'High' = 'None';
+  const highCount = issues.filter(i => i.risk === 'High').length;
+  const medCount = issues.filter(i => i.risk === 'Medium').length;
+
+  if (highCount > 0) leakageRisk = 'High';
+  else if (medCount > 0) leakageRisk = 'Medium';
+  else if (issues.length > 0) leakageRisk = 'Low';
+
+  return {
+    leakageRisk,
+    passed: highCount === 0,
+    issues
+  };
 }
 
 /**
@@ -467,10 +552,18 @@ export function executeMLOrchestrator(
   const isClassification = modelType === 'classification';
   const rows = dataset.rows;
 
-  // Pre-calculate target statistical metrics
-  const targetVals = rows.map(r => Number(r[target])).filter(x => !isNaN(x));
-  const targetMean = targetVals.length > 0 ? (targetVals.reduce((a,b)=>a+b, 0) / targetVals.length) : 500;
-  const targetStd = targetVals.length > 0 ? (Math.sqrt(targetVals.reduce((v,x)=> v + Math.pow(x - targetMean,2), 0) / targetVals.length) || 100) : 100;
+  // Perform split early to compute statistical averages on training group ONLY (Zero Out of Sample Leakage)
+  const testSplitIdx = Math.floor(rows.length * (hyperparameters.train_ratio || 0.8));
+  const trainSet = rows.slice(0, testSplitIdx);
+  const testSet = rows.slice(testSplitIdx);
+
+  // Pre-calculate target statistical metrics strictly on training set to satisfy anti-leakage guards
+  const trainTargetVals = trainSet.map(r => Number(r[target])).filter(x => !isNaN(x));
+  const targetMean = trainTargetVals.length > 0 ? (trainTargetVals.reduce((a,b)=>a+b, 0) / trainTargetVals.length) : 500;
+  const targetStd = trainTargetVals.length > 0 ? (Math.sqrt(trainTargetVals.reduce((v,x)=> v + Math.pow(x - targetMean,2), 0) / trainTargetVals.length) || 100) : 100;
+
+  // Execute explicit model leakage guard
+  const leakageAudit = auditModelLeakage(dataset, target, features);
 
   // 1. EDA RECOMMENDATION SYNTHESIS LOGIC
   const targetColMeta = dataset.columns.find(c => c.name === target);
@@ -553,14 +646,10 @@ export function executeMLOrchestrator(
   let r2Score = 0.0, mae = 0.0, rmse = 0.0;
   let confusionMatrix = { tp: 0, tn: 0, fp: 0, fn: 0 };
 
-  const testSplitIdx = Math.floor(rows.length * (hyperparameters.train_ratio || 0.8));
-  const testSet = rows.slice(testSplitIdx);
-  const trainSet = rows.slice(0, testSplitIdx);
-
   if (isClassification) {
-    // Classification Logic
+    // Classification Logic - strictly calculate statistics on training split to prevent evaluation leaks
     const primaryNumeric = numericFeatures[0] || features[0];
-    const meanNum = primaryNumeric ? (rows.reduce((sum, r) => sum + (Number(r[primaryNumeric]) || 0), 0) / rows.length) : 0;
+    const meanNum = primaryNumeric ? (trainSet.reduce((sum, r) => sum + (Number(r[primaryNumeric]) || 0), 0) / trainSet.length) : 0;
 
     rows.forEach((row, idx) => {
       const origVal = row[target];
@@ -617,9 +706,9 @@ export function executeMLOrchestrator(
 
     confusionMatrix = { tp, tn, fp, fn };
   } else {
-    // Regression outputs
+    // Regression outputs - strictly calculate statistics on training split to prevent evaluation leaks
     const primaryNumeric = numericFeatures[0] || features[0];
-    const meanNum = primaryNumeric ? (rows.reduce((sum, r) => sum + (Number(r[primaryNumeric]) || 0), 0) / rows.length) : 500;
+    const meanNum = primaryNumeric ? (trainSet.reduce((sum, r) => sum + (Number(r[primaryNumeric]) || 0), 0) / trainSet.length) : 500;
     
     rows.forEach((row, idx) => {
       const actualVal = Number(row[target]);
@@ -885,6 +974,7 @@ export function executeMLOrchestrator(
     },
     comparison,
     serializedModelBase64,
-    serializedFilename
+    serializedFilename,
+    leakageAudit
   };
 }
