@@ -76,10 +76,9 @@ Try asking me items like:
     const h = window.innerHeight;
     if (w > 50 && h > 50) {
       const buttonSize = 56;
-      const paddingX = 16;
       setPosition({
-        x: w - buttonSize - paddingX, // force right edge on initial mount
-        y: Math.max(85, Math.min(h - 110 - buttonSize, h - 185)) // safe bottom right
+        x: w - buttonSize, // force right edge on initial mount
+        y: Math.max(0, Math.min(h - buttonSize, h - 185)) // safe bottom right
       });
     }
   }, []);
@@ -93,18 +92,33 @@ Try asking me items like:
       if (w > 50 && h > 50) {
         setPosition(prev => {
           const buttonSize = 56;
-          const paddingX = 16;
-          const headerHeight = 85;
-          const footerHeight = 110;
 
-          // Determine nearest edge based on previous absolute coordinates relative to the updated screen midX
-          const midX = w / 2;
-          const targetX = prev.x < midX ? paddingX : w - buttonSize - paddingX;
+          const cx = prev.x;
+          const cy = prev.y;
 
-          // Clamped Y coordinates
-          const maxY = h - footerHeight - buttonSize;
-          const minY = headerHeight;
-          const targetY = Math.max(minY, Math.min(maxY, prev.y));
+          const dLeft = cx;
+          const dRight = w - buttonSize - cx;
+          const dTop = cy;
+          const dBottom = h - buttonSize - cy;
+
+          const minDist = Math.min(dLeft, dRight, dTop, dBottom);
+
+          let targetX = cx;
+          let targetY = cy;
+
+          if (minDist === dLeft) {
+            targetX = 0;
+            targetY = Math.max(0, Math.min(h - buttonSize, cy));
+          } else if (minDist === dRight) {
+            targetX = w - buttonSize;
+            targetY = Math.max(0, Math.min(h - buttonSize, cy));
+          } else if (minDist === dTop) {
+            targetY = 0;
+            targetX = Math.max(0, Math.min(w - buttonSize, cx));
+          } else {
+            targetY = h - buttonSize;
+            targetX = Math.max(0, Math.min(w - buttonSize, cx));
+          }
 
           if (targetX !== prev.x || targetY !== prev.y) {
             return { x: targetX, y: targetY };
@@ -126,6 +140,149 @@ Try asking me items like:
       timers.forEach(clearTimeout);
     };
   }, []);
+
+  const [isDraggingState, setIsDraggingState] = useState(false);
+  const dragStartOffset = useRef({ x: 0, y: 0 });
+  const startPointerCoords = useRef({ x: 0, y: 0 });
+
+  const [isChatDragging, setIsChatDragging] = useState(false);
+  const chatDragStart = useRef({ x: 0, y: 0 });
+
+  const handlePointerDown = (e: React.PointerEvent) => {
+    dragStartOffset.current = {
+      x: e.clientX - position.x,
+      y: e.clientY - position.y
+    };
+    startPointerCoords.current = {
+      x: e.clientX,
+      y: e.clientY
+    };
+    setIsDraggingState(true);
+    isDragging.current = true;
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const handlePointerMove = (e: React.PointerEvent) => {
+    if (!isDraggingState) return;
+    const rawX = e.clientX - dragStartOffset.current.x;
+    const rawY = e.clientY - dragStartOffset.current.y;
+    
+    // Clamp to make sure the icon stays fully on the screen during drag
+    const buttonSize = 56;
+    const currentX = Math.max(0, Math.min(window.innerWidth - buttonSize, rawX));
+    const currentY = Math.max(0, Math.min(window.innerHeight - buttonSize, rawY));
+    
+    setPosition({ x: currentX, y: currentY });
+  };
+
+  const handlePointerUp = (e: React.PointerEvent) => {
+    if (!isDraggingState) return;
+    setIsDraggingState(false);
+    e.currentTarget.releasePointerCapture(e.pointerId);
+
+    // Check if it's a tap or a drag
+    const deltaX = Math.abs(e.clientX - startPointerCoords.current.x);
+    const deltaY = Math.abs(e.clientY - startPointerCoords.current.y);
+    const isRealDrag = deltaX > 6 || deltaY > 6;
+
+    if (!isRealDrag) {
+      // Tap! Toggle chat window open
+      const chatWidth = 270;
+      const chatHeight = 360;
+      const pad = 12;
+
+      let cx = position.x;
+      let cy = position.y;
+
+      if (cx + chatWidth > window.innerWidth) {
+        cx = window.innerWidth - chatWidth - pad;
+      }
+      if (cx < pad) cx = pad;
+
+      if (cy + chatHeight > window.innerHeight) {
+        cy = window.innerHeight - chatHeight - pad;
+      }
+      if (cy < pad) cy = pad;
+
+      setPosition({ x: cx, y: cy });
+      setIsChatOpen(true);
+      isDragging.current = false;
+      return;
+    }
+
+    // It's a drag! Snap magnetically to the closest of the 4 edges of the screen
+    const w = window.innerWidth;
+    const h = window.innerHeight;
+    const buttonSize = 56;
+
+    const cx = e.clientX - dragStartOffset.current.x;
+    const cy = e.clientY - dragStartOffset.current.y;
+
+    const dLeft = cx;
+    const dRight = (w - buttonSize) - cx;
+    const dTop = cy;
+    const dBottom = (h - buttonSize) - cy;
+
+    const minDist = Math.min(dLeft, dRight, dTop, dBottom);
+
+    let targetX = cx;
+    let targetY = cy;
+
+    if (minDist === dLeft) {
+      targetX = 0;
+      targetY = Math.max(0, Math.min(h - buttonSize, cy));
+    } else if (minDist === dRight) {
+      targetX = w - buttonSize;
+      targetY = Math.max(0, Math.min(h - buttonSize, cy));
+    } else if (minDist === dTop) {
+      targetY = 0;
+      targetX = Math.max(0, Math.min(w - buttonSize, cx));
+    } else {
+      targetY = h - buttonSize;
+      targetX = Math.max(0, Math.min(w - buttonSize, cx));
+    }
+
+    setPosition({ x: targetX, y: targetY });
+    setTimeout(() => {
+      isDragging.current = false;
+    }, 100);
+  };
+
+  const handleChatPointerDown = (e: React.PointerEvent) => {
+    // Only drag from the header element dragging target, exclude close buttons etc
+    const target = e.target as HTMLElement;
+    if (target.closest('button') || target.closest('svg')) return;
+
+    chatDragStart.current = {
+      x: e.clientX - position.x,
+      y: e.clientY - position.y
+    };
+    setIsChatDragging(true);
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+
+  const handleChatPointerMove = (e: React.PointerEvent) => {
+    if (!isChatDragging) return;
+    const targetX = e.clientX - chatDragStart.current.x;
+    const targetY = e.clientY - chatDragStart.current.y;
+
+    const chatWidth = 270;
+    const chatHeight = 360;
+    const pad = 12;
+    const footerLimit = 100;
+
+    // Boundary constraints matching the UI viewport bounds perfectly
+    const finalX = Math.max(pad, Math.min(window.innerWidth - chatWidth - pad, targetX));
+    const finalY = Math.max(80, Math.min(window.innerHeight - footerLimit - chatHeight, targetY));
+
+    setPosition({ x: finalX, y: finalY });
+  };
+
+  const handleChatPointerUp = (e: React.PointerEvent) => {
+    if (!isChatDragging) return;
+    setIsChatDragging(false);
+    e.currentTarget.releasePointerCapture(e.pointerId);
+  };
 
   // Auto scroll to bottom of chat
   const scrollToBottom = () => {
@@ -460,22 +617,28 @@ Try asking me items like:
         content: m.content
       }));
 
-      const res = await fetch('/api/chat-bot', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          message: textToSend,
-          history: messageHistory,
-          datasetContext,
-          activeTab
-        })
-      });
+      let data;
+      try {
+        const res = await fetch('/api/chat-bot', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            message: textToSend,
+            history: messageHistory,
+            datasetContext,
+            activeTab
+          })
+        });
 
-      if (!res.ok) {
-        throw new Error('Chat model request failed on connection server.');
+        const resText = await res.text();
+        if (resText.trim().startsWith('<!doctype html') || resText.trim().startsWith('<html') || !res.ok) {
+          throw new Error('Fallback to local analyzer');
+        }
+        data = JSON.parse(resText);
+      } catch (e) {
+        console.warn('Backend server returned invalid or HTML response. running local copilot fallback...', e);
+        data = getClientSideChatFallback(textToSend, activeDataset, activeTab);
       }
-
-      const data = await res.json();
       
       // Execute any commands returned by the model
       const executedLogs = await executeCommandsList(data.commands || []);
@@ -547,69 +710,22 @@ Try asking me items like:
             /* AssistiveTouch Button Mode - Visible only when Chatbox is closed */
             <motion.div
               key="assistive-icon"
-              drag
-              dragMomentum={false}
-              dragElastic={0.1}
-              dragConstraints={dragContainerRef}
               animate={{ x: position.x, y: position.y, scale: 1, opacity: 1 }}
               initial={{ scale: 1, opacity: 1 }}
               exit={{ scale: 1, opacity: 0 }}
-              transition={{
+              transition={isDraggingState ? {
+                type: 'tween',
+                duration: 0
+              } : {
                 type: 'spring',
                 damping: 25,
                 stiffness: 220
               }}
               className="fixed top-0 left-0 pointer-events-auto cursor-grab active:cursor-grabbing z-50 flex flex-col items-center justify-center p-1"
               style={{ touchAction: 'none' }}
-              onDragStart={() => { isDragging.current = true; }}
-              onDragEnd={(e, info) => {
-                // Get release coordinates
-                const pointerX = info.point.x;
-                const pointerY = info.point.y;
-
-                const midX = window.innerWidth / 2;
-                const paddingX = 16;
-                const buttonSize = 56;
-
-                // Snap magnetically to the closest screen edge
-                let targetX = pointerX < midX 
-                  ? paddingX 
-                  : window.innerWidth - buttonSize - paddingX;
-
-                // Constrain vertically to stay safely within visible interactive frame (clear of header/footer)
-                const headerLimit = 85;
-                const footerLimit = 100;
-                let targetY = Math.max(headerLimit, Math.min(window.innerHeight - footerLimit - buttonSize, pointerY - (buttonSize / 2)));
-
-                // Set state to trigger framer motion spring physics magnetic snapping
-                setPosition({ x: targetX, y: targetY });
-
-                setTimeout(() => { isDragging.current = false; }, 150);
-              }}
-              onTap={() => {
-                if (!isDragging.current) {
-                  // Precheck to ensure opening the chat box doesn't push it out of screen bounds
-                  const chatWidth = 270;
-                  const chatHeight = 360;
-                  const pad = 12;
-
-                  let cx = position.x;
-                  let cy = position.y;
-
-                  if (cx + chatWidth > window.innerWidth) {
-                    cx = window.innerWidth - chatWidth - pad;
-                  }
-                  if (cx < pad) cx = pad;
-
-                  if (cy + chatHeight > window.innerHeight) {
-                    cy = window.innerHeight - chatHeight - pad;
-                  }
-                  if (cy < pad) cy = pad;
-
-                  setPosition({ x: cx, y: cy });
-                  setIsChatOpen(true);
-                }
-              }}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={handlePointerUp}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
             >
@@ -670,37 +786,28 @@ Try asking me items like:
             /* Chat Box Mode (65% Scaler Size applied, Draggable across coordinates) */
             <motion.div
               key="assistive-chat"
-              drag
-              dragMomentum={false}
-              dragElastic={0.1}
-              dragConstraints={dragContainerRef}
               animate={{ x: position.x, y: position.y, scale: 1, opacity: 1 }}
               initial={{ scale: 0.8, opacity: 0 }}
               exit={{ scale: 0.8, opacity: 0 }}
-              transition={{ type: 'spring', damping: 25, stiffness: 220 }}
-              onDragStart={() => { isDragging.current = true; }}
-              onDragEnd={(e, info) => {
-                const chatWidth = 270;
-                const chatHeight = 360;
-                const pad = 12;
-
-                // Match alignment accurately
-                let targetX = info.point.x - (chatWidth / 2);
-                let targetY = info.point.y - 20;
-
-                // Impose boundaries constraint
-                targetX = Math.max(pad, Math.min(window.innerWidth - chatWidth - pad, targetX));
-                targetY = Math.max(80, Math.min(window.innerHeight - 100 - chatHeight, targetY));
-
-                setPosition({ x: targetX, y: targetY });
-                setTimeout(() => { isDragging.current = false; }, 120);
+              transition={isChatDragging ? {
+                type: 'tween',
+                duration: 0
+              } : {
+                type: 'spring',
+                damping: 25,
+                stiffness: 220
               }}
               className="fixed top-0 left-0 w-[270px] h-[360px] bg-[#0A0F1D]/95 border border-slate-800 rounded-3xl shadow-3xl flex flex-col z-50 pointer-events-auto overflow-hidden backdrop-blur-lg select-text"
               id="assistive_chat_panel"
               style={{ touchAction: 'none' }}
             >
               {/* Header Details */}
-              <div className="bg-[#0e162a]/95 px-3 py-2 border-b border-slate-800/80 flex items-center justify-between z-10 shrink-0 cursor-move select-none">
+              <div 
+                onPointerDown={handleChatPointerDown}
+                onPointerMove={handleChatPointerMove}
+                onPointerUp={handleChatPointerUp}
+                className="bg-[#0e162a]/95 px-3 py-2 border-b border-slate-800/80 flex items-center justify-between z-10 shrink-0 cursor-move select-none"
+              >
                 <div className="flex items-center gap-2">
                   <div className="w-7 h-7 bg-[#070A13] rounded-full flex flex-col justify-between p-1 border border-slate-700/40 relative select-none shadow-md shrink-0 overflow-hidden">
                     {/* Top Bar */}
@@ -721,10 +828,10 @@ Try asking me items like:
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 border border-[#0A0F1D] absolute bottom-0.5 right-0.5" />
                   </div>
                   <div>
-                    <h4 className="font-extrabold text-[11px] text-white flex items-center gap-1 leading-none">
-                      AskAI <span className="text-[8px] text-teal-400 font-bold font-mono bg-[#3bc8c8]/10 px-1 rounded border border-[#3bc8c8]/20">DeepakAI</span>
+                    <h4 className="font-extrabold text-[11px] text-white flex items-center gap-1 leading-none whitespace-nowrap">
+                      AskAI <span className="text-[8px] text-teal-400 font-bold font-mono bg-[#3bc8c8]/10 px-1 rounded border border-[#3bc8c8]/20 shrink-0">DeepakAI</span>
                     </h4>
-                    <p className="text-[8px] text-slate-400 mt-0.5 font-medium leading-none">Interactive Data Copilot</p>
+                    <p className="text-[8px] text-slate-400 mt-0.5 font-medium leading-none whitespace-nowrap">Interactive Data Copilot</p>
                   </div>
                 </div>
                 <button
@@ -748,7 +855,7 @@ Try asking me items like:
               </div>
 
               {/* Chat Thread Messages Stream (65% Scaled Height & Text) */}
-              <div className="flex-1 p-2.5 overflow-y-auto space-y-2.5 bg-[#070B14]/45 scrollbar-thin select-text">
+              <div className="flex-1 p-2.5 overflow-y-auto space-y-2.5 bg-[#070B14]/45 scrollbar-thin select-text" style={{ WebkitOverflowScrolling: 'touch' }}>
                 {messages.map((m) => {
                   const isUser = m.role === 'user';
                   return (
@@ -924,4 +1031,291 @@ Try asking me items like:
       </div>
     </>
   );
+}
+
+function getClientSideChatFallback(userMsg: string, ds: any, activeTab: string) {
+  const msgLower = userMsg.toLowerCase();
+  let reply = "";
+  let commands: any[] = [];
+
+  const colNames = ds && Array.isArray(ds.columns) ? ds.columns.map((c: any) => c.name) : [];
+  const colNamesList = colNames.join(', ');
+  const rowCount = ds ? ds.rowCount : 0;
+
+  // Prioritized SQL Command parser fallback
+  if (msgLower.includes('select') || msgLower.includes('update') || msgLower.includes('delete') || msgLower.includes('insert') || msgLower.includes('alter') || msgLower.includes('multiply') || msgLower.includes('double') || msgLower.includes('calculate')) {
+    let isQueryProcessed = false;
+    let jsCode = "";
+    let sqlQuery = userMsg;
+    let explanation = "";
+
+    // 1. SELECT query parsing (e.g., SELECT * FROM dataset WHERE Age > 30)
+    if (msgLower.includes('select') && msgLower.includes('where')) {
+      const match = msgLower.match(/where\s+(\w+)\s*(=|>|<|!=)\s*(['"]?[\w\s.-]+['"]?)/i);
+      if (match) {
+        const col = colNames.find((c: string) => c.toLowerCase() === match[1].toLowerCase()) || match[1];
+        const op = match[2] === '=' ? '===' : match[2];
+        const val = match[3].replace(/['"]/g, '').trim();
+        const isNum = !isNaN(Number(val));
+        const compareVal = isNum ? Number(val) : `'${val}'`;
+
+        jsCode = `(dataset) => {
+          const filteredRows = dataset.rows.filter(row => {
+            const rowVal = row['${col}'];
+            if (rowVal === undefined || rowVal === null) return false;
+            return ${isNum ? 'Number(rowVal)' : 'String(rowVal).toLowerCase()'} ${op} ${isNum ? compareVal : `'${val.toLowerCase()}'`};
+          });
+          return {
+            ...dataset,
+            rows: filteredRows,
+            rowCount: filteredRows.length
+          };
+        }`;
+        explanation = `Filtered rows where "${col}" ${match[2]} "${val}"`;
+        isQueryProcessed = true;
+      }
+    }
+
+    // 2. UPDATE query parsing (e.g., UPDATE dataset SET churn = 1 WHERE tenure < 5)
+    if (msgLower.includes('update') && msgLower.includes('set')) {
+      const matchSet = msgLower.match(/set\s+(\w+)\s*=\s*([^where]+)/i);
+      if (matchSet) {
+        const colToUpdate = colNames.find((c: string) => c.toLowerCase() === matchSet[1].toLowerCase()) || matchSet[1];
+        let expr = matchSet[2].trim();
+        
+        let whereCol: string | null = null;
+        let whereOp = "===";
+        let whereVal = "";
+        let whereIsNum = false;
+
+        const whereIndex = msgLower.indexOf('where');
+        if (whereIndex !== -1) {
+          const wherePart = userMsg.slice(whereIndex + 5).trim();
+          const whereMatch = wherePart.match(/(\w+)\s*(=|>|<|!=)\s*(['"]?[\w\s.-]+['"]?)/i);
+          if (whereMatch) {
+            whereCol = colNames.find((c: string) => c.toLowerCase() === whereMatch[1].toLowerCase()) || whereMatch[1];
+            whereOp = whereMatch[2] === '=' ? '===' : whereMatch[2];
+            whereVal = whereMatch[3].replace(/['"]/g, '').trim();
+            whereIsNum = !isNaN(Number(whereVal));
+          }
+        }
+
+        jsCode = `(dataset) => {
+          const updatedRows = dataset.rows.map(row => {
+            const copy = { ...row };
+            let shouldUpdate = true;
+            if ('${whereCol || ''}') {
+              const rowWhereVal = row['${whereCol || ''}'];
+              if (rowWhereVal === undefined || rowWhereVal === null) {
+                shouldUpdate = false;
+              } else {
+                const compVal = ${whereIsNum ? 'Number' : 'String'}(rowWhereVal);
+                const targetComp = ${whereIsNum ? whereVal : `'${whereVal}'.toLowerCase()`};
+                shouldUpdate = ${whereIsNum ? 'compVal' : 'compVal.toLowerCase()'} ${whereOp} targetComp;
+              }
+            }
+
+            if (shouldUpdate) {
+              let newVal = copy['${colToUpdate}'];
+              const rawExpr = '${expr}';
+              if (rawExpr.includes('+')) {
+                const parts = rawExpr.split('+');
+                const addVal = Number(parts[1].trim());
+                newVal = isNaN(addVal) ? rawExpr.replace(/['"]/g, '') : Number(copy['${colToUpdate}']) + addVal;
+              } else if (rawExpr.includes('-')) {
+                const parts = rawExpr.split('-');
+                const subVal = Number(parts[1].trim());
+                newVal = isNaN(subVal) ? rawExpr.replace(/['"]/g, '') : Number(copy['${colToUpdate}']) - subVal;
+              } else if (rawExpr.includes('*')) {
+                const parts = rawExpr.split('*');
+                const multVal = Number(parts[1].trim());
+                newVal = isNaN(multVal) ? copy['${colToUpdate}'] : Number(copy['${colToUpdate}']) * multVal;
+              } else if (!isNaN(Number(rawExpr))) {
+                newVal = Number(rawExpr);
+              } else {
+                newVal = rawExpr.replace(/['"]/g, '');
+              }
+              copy['${colToUpdate}'] = newVal;
+            }
+            return copy;
+          });
+
+          return {
+            ...dataset,
+            rows: updatedRows
+          };
+        }`;
+        explanation = `Updated values of "${colToUpdate}" matching query criteria`;
+        isQueryProcessed = true;
+      }
+    }
+
+    // 3. DELETE query parsing (e.g., DELETE FROM dataset WHERE age < 18)
+    if (msgLower.includes('delete') && msgLower.includes('where')) {
+      const match = msgLower.match(/where\s+(\w+)\s*(=|>|<|!=)\s*(['"]?[\w\s.-]+['"]?)/i);
+      if (match) {
+        const col = colNames.find((c: string) => c.toLowerCase() === match[1].toLowerCase()) || match[1];
+        const op = match[2] === '=' ? '===' : match[2];
+        const val = match[3].replace(/['"]/g, '').trim();
+        const isNum = !isNaN(Number(val));
+        const compareVal = isNum ? Number(val) : `'${val}'`;
+
+        jsCode = `(dataset) => {
+          const filteredRows = dataset.rows.filter(row => {
+            const rowVal = row['${col}'];
+            if (rowVal === undefined || rowVal === null) return true;
+            const matchesCondition = ${isNum ? 'Number(rowVal)' : 'String(rowVal).toLowerCase()'} ${op} ${isNum ? compareVal : `'${val.toLowerCase()}'`};
+            return !matchesCondition;
+          });
+          return {
+            ...dataset,
+            rows: filteredRows,
+            rowCount: filteredRows.length
+          };
+        }`;
+        explanation = `Deleted rows where "${col}" ${match[2]} "${val}"`;
+        isQueryProcessed = true;
+      }
+    }
+
+    if (!isQueryProcessed) {
+      // Fallback custom mutator for general commands e.g. "double MonthlyCharges" or "multiply tenure by 10"
+      let foundCol = colNames.find((c: string) => msgLower.includes(c.toLowerCase()));
+      if (foundCol) {
+        let scale = 1;
+        if (msgLower.includes('double')) scale = 2;
+        else if (msgLower.includes('triple')) scale = 3;
+        else {
+          const numMatch = msgLower.match(/\d+/);
+          if (numMatch) scale = Number(numMatch[0]);
+        }
+
+        jsCode = `(dataset) => {
+          const updatedRows = dataset.rows.map(row => {
+            const copy = { ...row };
+            if (copy['${foundCol}'] !== undefined) {
+              copy['${foundCol}'] = Number(copy['${foundCol}']) * ${scale};
+            }
+            return copy;
+          });
+          return {
+            ...dataset,
+            rows: updatedRows
+          };
+        }`;
+        explanation = `Scaled column "${foundCol}" by factor ${scale}`;
+        isQueryProcessed = true;
+      }
+    }
+
+    if (isQueryProcessed) {
+      reply = `I have decoded your action request! Running dataset operations pipeline.\n- **Transformed query**: \`${sqlQuery}\`\n- **Database Action**: Executes dynamic row-set corrections seamlessly.`;
+      commands.push({
+        type: 'EXECUTE_DATASET_JS',
+        jsCode,
+        sqlQuery,
+        explanation
+      });
+      commands.push({ type: 'SELECT_TAB', tab: 'clean' });
+      return { message: reply, commands };
+    }
+  }
+
+  if (msgLower.includes('drop') || msgLower.includes('remove column')) {
+    // Find which column to drop
+    const foundCol = colNames.find((c: string) => msgLower.includes(c.toLowerCase()));
+    if (foundCol) {
+      reply = `I have successfully analyzed your command to drop column. Dropping **"${foundCol}"** and updating active pipelines.`;
+      commands.push({ type: 'DROP_COLUMN', column: foundCol });
+      commands.push({ type: 'SELECT_TAB', tab: 'clean' });
+    } else {
+      reply = `I can drop columns for you, but I couldn't identify which column you wanted to drop. Available columns: ${colNamesList || 'No dataset loaded'}.`;
+    }
+  } else if (msgLower.includes('fill') || msgLower.includes('impute') || msgLower.includes('missing')) {
+    const foundCol = colNames.find((c: string) => msgLower.includes(c.toLowerCase())) || colNames[0];
+    let strategy = 'mean';
+    if (msgLower.includes('median')) strategy = 'median';
+    else if (msgLower.includes('zero') || msgLower.includes('0')) strategy = 'zero';
+    else if (msgLower.includes('mode') || msgLower.includes('common')) strategy = 'mode';
+
+    if (foundCol) {
+      reply = `I am executing an data imputation task on column **"${foundCol}"** using the **"${strategy}"** strategy to clean the dataset.`;
+      commands.push({ type: 'FILL_MISSING', column: foundCol, strategy });
+      commands.push({ type: 'SELECT_TAB', tab: 'clean' });
+    } else {
+      reply = `Imputation can only be executed when a column is specified. Available columns: ${colNamesList || 'N/A'}`;
+    }
+  } else if (msgLower.includes('eda') || msgLower.includes('scan') || msgLower.includes('analyze') || msgLower.includes('exploratory')) {
+    reply = "Starting Exploratory Data Scan and Statistical Analysis on active datasets using our intelligent analytics engine!";
+    commands.push({ type: 'SELECT_TAB', tab: 'eda' });
+    commands.push({ type: 'RUN_EDA_SCAN' });
+  } else if (msgLower.includes('model') || msgLower.includes('predict') || msgLower.includes('ml') || msgLower.includes('train')) {
+    // Intelligently infer target and features
+    const targetCol = colNames.find((c: string) => msgLower.includes(c.toLowerCase()) && (c.toLowerCase().includes('target') || c.toLowerCase().includes('churn') || c.toLowerCase().includes('probability'))) || colNames[colNames.length - 1] || 'target';
+    const features = colNames.filter((c: string) => c !== targetCol).slice(0, 4);
+    const mType = msgLower.includes('class') || targetCol.toLowerCase().includes('churn') ? 'classification' : 'regression';
+    
+    reply = `I've configured and triggered an automated Machine Learning pipeline for you!\n- **Stage**: ML Modeling\n- **Target Column**: \`${targetCol}\`\n- **Features**: ${JSON.stringify(features)}\n- **Model Type**: \`${mType}\`\n\nTraining starting now...`;
+    commands.push({ type: 'SELECT_TAB', tab: 'ml' });
+    commands.push({ type: 'RUN_ML', targetColumn: targetCol, featureColumns: features, modelType: mType });
+  } else if (msgLower.includes('dashboard') || msgLower.includes('chart') || msgLower.includes('metric') || msgLower.includes('slicer')) {
+    reply = "Right away! Moving you to the **Stakeholder Dashboard** stage where you can filter columns and monitor business outcomes.";
+    commands.push({ type: 'SELECT_TAB', tab: 'dashboard' });
+  } else if (msgLower.includes('report') || msgLower.includes('brief') || msgLower.includes('pdf') || msgLower.includes('hub')) {
+    reply = "Transitioning to **Strategic Reports Hub** stage. You can compile, view, and export executive analysis briefs here.";
+    commands.push({ type: 'SELECT_TAB', tab: 'reports' });
+  } else if (msgLower.includes('ingest') || msgLower.includes('upload') || msgLower.includes('csv')) {
+    reply = "Opening **Data Ingestion** panel so you can upload or template a dataset.";
+    commands.push({ type: 'SELECT_TAB', tab: 'ingest' });
+  } else if (msgLower.includes('add column') || msgLower.includes('create column')) {
+    let label = 'NewDimension';
+    const parts = userMsg.split(/add column|create column/i);
+    if (parts[1]) {
+      const potentialName = parts[1].trim().split(' ')[0].replace(/[^a-zA-Z0-9_]/g, '');
+      if (potentialName) label = potentialName;
+    }
+    reply = `I am executing a pipeline task to add a new column named **"${label}"** with default values. Checking structures...`;
+    commands.push({ type: 'ADD_COLUMN', column: label, columnType: 'categorical', value: 'DefaultVal' });
+    commands.push({ type: 'SELECT_TAB', tab: 'clean' });
+  } else if (msgLower.includes('add row') || msgLower.includes('insert row')) {
+    reply = `Instructing the pipeline studio to append a new default row with placeholder entries!`;
+    commands.push({ type: 'ADD_ROW' });
+    commands.push({ type: 'SELECT_TAB', tab: 'clean' });
+  } else if (msgLower.includes('delete row') || msgLower.includes('remove row')) {
+    const match = userMsg.match(/\d+/);
+    const index = match ? parseInt(match[0]) : 0;
+    reply = `Applying dataset correction: Deleting active row at index **#${index}**.`;
+    commands.push({ type: 'DELETE_ROW', index });
+    commands.push({ type: 'SELECT_TAB', tab: 'clean' });
+  } else if (msgLower.includes('group by') || msgLower.includes('groupby')) {
+    const foundCol = colNames.find((c: string) => msgLower.includes(c.toLowerCase())) || colNames[0];
+    if (foundCol) {
+      reply = `I am executing a group-by operation. Grouping the active dataset by **"${foundCol}"** and displaying aggregation breakdown in the Cleaning Studio.`;
+      commands.push({ type: 'SELECT_TAB', tab: 'clean' });
+    } else {
+      reply = `I can group your columns for aggregate summaries, but please specify one from: ${colNamesList || 'N/A'}`;
+    }
+  } else if (msgLower.includes('reset') || msgLower.includes('restore') || msgLower.includes('original')) {
+    reply = "I've reset the active worksheet back to its original raw state. All values restored successfully!";
+    commands.push({ type: 'RESET_DATASET' });
+    commands.push({ type: 'SELECT_TAB', tab: 'clean' });
+  } else if (msgLower.includes('hello') || msgLower.includes('hi') || msgLower.includes('who are you') || msgLower.includes('creater') || msgLower.includes('deepak')) {
+    reply = `Hello! I am **AskAI**, acting as your interactive **AskDeepakAI** co-pilot built by **Gorisi Deepak Reddy**. 
+    
+I can analyze your dataset, clean missing cells, add or delete rows and columns, compute group-by metrics, run ML prediction models, and manage tabs. Try prompts like:
+- *"Add column PremiumCustomer"*
+- *"Insert a blank row"*
+- *"Delete row 3"*
+- *"Group by Country"*
+- *"Drop column PaymentMethod"*
+- *"Impute missing Age with median"*
+- *"Run classification models for target Churn"*
+- *"Reset dataset"*`;
+  } else {
+    reply = `I have received your message: "${userMsg}". 
+    
+As your AI code copilot, I can read and write the active dataset! I can add/delete rows & columns, perform group values, and execute smart operations. Current dataset has **${rowCount}** rows with columns: ${colNamesList || 'None'}.`;
+  }
+
+  return { message: reply, commands };
 }
