@@ -341,7 +341,7 @@ export default function App() {
                               ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-300 shadow-[inset_0_0_20px_rgba(99,102,241,0.1)]'
                               : 'border-transparent bg-transparent text-slate-400 hover:text-white hover:bg-white/5'
                           }`
-                        : `w-full h-[46px] justify-between px-3 rounded-xl text-left ${
+                        : `w-full h-[46px] flex-nowrap whitespace-nowrap overflow-hidden justify-between px-3 rounded-xl text-left ${
                             isLocked
                               ? 'opacity-30 cursor-not-allowed'
                               : isSelected
