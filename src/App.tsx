@@ -282,38 +282,13 @@ export default function App() {
       )}
 
       {/* Main Tabbed Layout Container */}
-      <div className={`flex-1 flex flex-row overflow-hidden relative`} id="layout_stage_wrapper">
-        
-        {/* Dynamic layout spacer only preserves space for collapsed pill. Expanded pill overlays. */}
-        <div
-          style={{ width: isMobile ? 54 : 70, marginRight: 16, marginLeft: isMobile ? 4 : 10 }}
-          className="shrink-0 block"
-        />
+      <div className={`flex-1 flex flex-col overflow-x-hidden relative`} id="layout_stage_wrapper">
 
-        {/* Futuristic Cyber Sidebar (Pill Mode - Visible on ALL screens) */}
-        <motion.aside
-          onMouseEnter={() => setIsHovered(true)}
-          onMouseLeave={() => setIsHovered(false)}
-          initial={false}
-          animate={{
-            width: isSidebarExpanded ? (isMobile ? 220 : 250) : (isMobile ? 54 : 70),
-            y: '-50%',
-            x: 0,
-            borderRadius: '24px',
-            boxShadow: isSidebarExpanded ? '0 30px 60px -15px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255,255,255,0.1)' : '0 15px 30px -10px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255,255,255,0.05)'
-          }}
-          style={{ top: '50%', left: isMobile ? 4 : 10, position: 'fixed', zIndex: 40 }}
-          transition={{ type: 'spring', stiffness: 350, damping: 30 }}
-          className={`flex bg-slate-900/80 backdrop-blur-xl shrink-0 box-border border-white/5 hover:border-white/10 transition-colors overflow-hidden flex-col py-4 border`}
-          id="pipeline_stages_sidebar"
-        >
-          <div className="flex items-center transition-all duration-300 flex-col space-y-2 px-2 w-full h-auto overflow-y-auto overflow-x-hidden scrollbar-none">
-            {/* Pipeline Stage Labels header always rendered to keep total container height perfectly stable */}
-            <div className={`w-full text-left transition-opacity duration-300 shrink-0 space-y-1 mb-2 h-4 ${isSidebarExpanded ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-              <span className="text-[10px] uppercase tracking-[0.25em] text-slate-500 font-bold block ml-2 whitespace-nowrap font-display">Pipeline Stages</span>
-            </div>
+        {/* Futuristic Cyber Nav Bar (Horizontal) */}
+        <div className="w-full border-b border-white/10 bg-slate-950/40 backdrop-blur-3xl shrink-0 z-30 sticky top-0 shadow-[0_4px_20px_rgba(0,0,0,0.1)]">
+          <div className="flex items-center px-4 md:px-8 overflow-x-auto scrollbar-none py-3">
             
-            <nav className="w-full flex items-center shrink-0 flex-col space-y-2">
+            <nav className="flex items-center space-x-2 md:space-x-3 w-max max-w-full mx-auto">
               {[
                 { id: 'ingest', step: '01', label: 'Data Ingestion', icon: FolderOpen, status: 'Ready' },
                 { id: 'clean', step: '02', label: 'Cleaning Studio', icon: Layers, status: activeDataset ? 'Unlocked' : 'Locked' },
@@ -332,55 +307,30 @@ export default function App() {
                     onClick={() => !isLocked && setActiveTab(tab.id as any)}
                     disabled={isLocked}
                     title={tab.label}
-                    className={`group relative flex items-center transition-all duration-300 cursor-pointer ${
-                      !isSidebarExpanded
-                        ? `w-[46px] h-[46px] justify-center rounded-[18px] border ${
-                            isLocked
-                              ? 'opacity-20 border-white/5 bg-transparent text-slate-500 cursor-not-allowed'
-                              : isSelected
-                              ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-300 shadow-[inset_0_0_20px_rgba(99,102,241,0.1)]'
-                              : 'border-transparent bg-transparent text-slate-400 hover:text-white hover:bg-white/5'
-                          }`
-                        : `w-full h-[46px] flex-nowrap whitespace-nowrap overflow-hidden justify-between px-3 rounded-xl text-left ${
-                            isLocked
-                              ? 'opacity-30 cursor-not-allowed'
-                              : isSelected
-                              ? 'bg-indigo-500/10 text-white border-l-[3px] border-indigo-500 shadow-inner'
-                              : 'text-slate-400 hover:text-slate-200 hover:bg-white/5'
-                          }`
+                    className={`group relative flex items-center transition-all duration-300 cursor-pointer h-10 px-3 md:px-4 rounded-xl shrink-0 ${
+                      isLocked
+                        ? 'opacity-30 cursor-not-allowed bg-transparent text-slate-500'
+                        : isSelected
+                        ? 'bg-indigo-500/15 text-white border border-indigo-500/30 shadow-[inset_0_0_15px_rgba(99,102,241,0.1)]'
+                        : 'text-slate-400 border border-transparent hover:text-slate-200 hover:bg-white/5'
                     }`}
                   >
-                    {!isSidebarExpanded ? (
-                      <div className="relative flex items-center justify-center animate-fade-in1">
-                        <IconComponent className={`w-[20px] h-[20px] ${isSelected ? 'text-indigo-400 drop-shadow-[0_0_8px_rgba(99,102,241,0.5)]' : 'text-slate-500 group-hover:text-slate-300'} transition-all`} />
-                      </div>
-                    ) : (
-                      <>
-                        <div className="flex items-center gap-3 animate-fade-in shrink-0 min-w-0">
-                          <span className={`text-[10px] font-mono ${isSelected ? 'text-indigo-500 font-bold' : 'text-slate-600'} w-4`}>
-                            {tab.step}
-                          </span>
-                          <IconComponent className={`w-[18px] h-[18px] ${isSelected ? 'text-indigo-400' : 'text-slate-500 group-hover:text-slate-300'} transition-colors`} />
-                          <span className={`text-[13px] font-medium font-display tracking-wide whitespace-nowrap ${isSelected ? 'text-white font-semibold' : 'text-slate-400'}`}>{tab.label}</span>
-                        </div>
-                        <div className="flex items-center animate-fade-in shrink-0">
-                          {isSelected ? (
-                            <span className="w-1.5 h-1.5 bg-indigo-500 rounded-full animate-ping absolute right-3" />
-                          ) : null}
-                          <span className="text-[10px] font-mono text-slate-500 scale-90 opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap">
-                            {tab.status}
-                          </span>
-                        </div>
-                      </>
-                    )}
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[10px] font-mono hidden md:inline-block ${isSelected ? 'text-indigo-500 font-bold' : 'text-slate-600'}`}>
+                        {tab.step}
+                      </span>
+                      <IconComponent className={`w-[16px] h-[16px] shrink-0 ${isSelected ? 'text-indigo-400 drop-shadow-[0_0_6px_rgba(99,102,241,0.5)]' : 'text-slate-500 group-hover:text-slate-300'} transition-colors`} />
+                      <span className={`text-[12px] md:text-[13px] font-medium font-display tracking-wide whitespace-nowrap ${isSelected ? 'text-white font-semibold' : 'text-slate-400'}`}>
+                        {tab.label}
+                      </span>
+                    </div>
                   </button>
                 );
               })}
             </nav>
+            
           </div>
-
-          {/* Collapse toggle removed per user request */}
-        </motion.aside>
+        </div>
 
         {/* Workspace Display Area */}
         <main className={`flex-1 p-4 pb-8 md:p-8 md:overflow-y-auto overflow-y-visible w-full space-y-6 relative transition-all duration-500 ease-in-out ${isPillMode ? 'max-w-[1550px]' : 'max-w-7xl'} mx-auto`} style={{ WebkitOverflowScrolling: 'touch' }}>
