@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useRef } from 'react';
-import { Upload, FileSpreadsheet, CheckCircle2, AlertTriangle, Play, HelpCircle, HardDrive, Cpu, Terminal, Sparkles, FolderPlus, ArrowRight } from 'lucide-react';
+import { Upload, FileSpreadsheet, CheckCircle2, AlertTriangle, Play, HelpCircle, HardDrive, Cpu, Terminal, Sparkles, FolderPlus, ArrowRight, BrainCircuit } from 'lucide-react';
 import { Dataset } from '../types';
 import { parseCSV, loadSampleDataset } from '../utils/csvParser';
 
@@ -92,10 +92,16 @@ export default function DataUploader({ onDatasetLoaded, currentDataset }: DataUp
               Upload custom customer sheets or invoke AskDeepakAI's specialized pre-packaged commercial simulation templates.
             </p>
           </div>
-          <span className="bg-[#121B2A]/90 text-emerald-400 text-[10px] font-mono font-bold px-3 py-1 rounded-full border border-emerald-500/20 uppercase tracking-wide flex items-center gap-1.5 shrink-0 self-start sm:self-auto shadow-md">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-            VITE_SANDBOX: ACTIVE
-          </span>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 shrink-0">
+            <span className="bg-[#131B2E]/90 text-indigo-400 text-[10px] font-mono font-bold px-3 py-1 rounded-full border border-indigo-500/30 uppercase tracking-wide flex items-center gap-1.5 shadow-md">
+              <BrainCircuit className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
+              ML Pipeline Stage: ACTIVE
+            </span>
+            <span className="bg-[#121B2A]/90 text-emerald-400 text-[10px] font-mono font-bold px-3 py-1 rounded-full border border-emerald-500/20 uppercase tracking-wide flex items-center gap-1.5 shadow-md">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              VITE_SANDBOX: ACTIVE
+            </span>
+          </div>
         </div>
 
         {/* Drag and Drop Zone */}
