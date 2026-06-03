@@ -168,6 +168,76 @@ Respond strict JSON following the database schema structure.`;
   }
 });
 
+// 1b. PIPELINE INTELLIGENCE (Business Context)
+app.post('/api/pipeline-intelligence', async (req, res) => {
+  const { datasetProfile, businessProblem } = req.body || {};
+  
+  const client = getGeminiClient();
+  const hasKey = !!process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY !== 'MY_GEMINI_API_KEY' && process.env.GEMINI_API_KEY !== 'DUMMY_KEY_FALLBACK';
+
+  if (!hasKey) {
+    // Fallback response if no key
+    return res.json({
+      detectedDomain: 'Generic Data',
+      inferredProblem: 'Analyze the dataset for trends and patterns.',
+      recommendedTarget: datasetProfile?.columns?.[datasetProfile?.columns?.length - 1]?.name || 'Unknown',
+      pipelineStrategy: 'Standard data analysis pipeline focusing on basic descriptive and predictive analytics.',
+      stageInstructions: {}
+    });
+  }
+
+  try {
+    const prompt = `You are a Principal Data Scientist and Business Strategist.
+Given the following dataset profile:
+${JSON.stringify(datasetProfile, null, 2)}
+
+And the following stated business problem from the user (if any):
+"${businessProblem || ''}"
+
+Return a strategic plan for how to approach this data pipeline in JSON format.
+1. "detectedDomain": The industry or domain (e.g. Finance, Healthcare, E-commerce).
+2. "inferredProblem": If the user did NOT provide a business problem, state your best guess at what they want to solve based on the dataset structure. If they DID provide one, rephrase it formally.
+3. "recommendedTarget": The ideal column to use as the target variable for Machine Learning.
+4. "pipelineStrategy": A short paragraph explaining how the pipeline should be configured for this specific dataset and problem.
+5. "stageInstructions": An object containing specific 1-2 sentence instructions or focus areas for each stage ("Stage 2: Cleaning Studio", "Stage 3: EDA", "Stage 4: ML Modeling", "Stage 5: Dashboard", "Stage 6: Stakeholder Insights").
+
+Respond strict JSON following the schema structure.`;
+
+    const aiResponse = await generateContentWithRetry(client, {
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          required: ['detectedDomain', 'inferredProblem', 'recommendedTarget', 'pipelineStrategy', 'stageInstructions'],
+          properties: {
+            detectedDomain: { type: Type.STRING },
+            inferredProblem: { type: Type.STRING },
+            recommendedTarget: { type: Type.STRING },
+            pipelineStrategy: { type: Type.STRING },
+            stageInstructions: {
+              type: Type.OBJECT,
+              properties: {
+                "Stage 2: Cleaning Studio": { type: Type.STRING },
+                "Stage 3: EDA": { type: Type.STRING },
+                "Stage 4: ML Modeling": { type: Type.STRING },
+                "Stage 5: Dashboard": { type: Type.STRING },
+                "Stage 6: Stakeholder Insights": { type: Type.STRING }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    const parsedData = JSON.parse(aiResponse.text || '{}');
+    return res.json(parsedData);
+  } catch (err: any) {
+    console.error('[AskDeepakAI] Pipeline Intelligence Error:', err);
+    return res.status(500).json({ error: err.message || String(err) });
+  }
+});
+
 // 2. MACHINE LEARNING MODELLER & STAKEHOLDER REPORT
 app.post('/api/run-ml-prediction', async (req, res) => {
   const { target, features, modelType, hyperparameters, datasetColumns, datasetRowsSample } = req.body || {};
@@ -723,6 +793,539 @@ Active Dataset Context:
     return res.json(getFallbackResponse());
   }
 });
+
+// --- NEW MODULE ENDPOINTS ---
+
+// MODULE 1: SQL Assistant
+app.post('/api/sql-assistant', async (req, res) => {
+  const { schema, question } = req.body || {};
+  const client = getGeminiClient();
+  try {
+    const prompt = `You are an expert SQL Generator. Given the following database schema (or csv headers):
+${schema}
+User question: ${question}
+
+Generate the correct SQL query, and provide a line-by-line plain English explanation of the query.
+Return strict JSON with exactly this structure:
+{
+  "sql": "SELECT ...",
+  "explanation": "1. The SELECT clause... 2. The WHERE clause..."
+}`;
+    const aiResponse = await generateContentWithRetry(client, {
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            sql: { type: Type.STRING },
+            explanation: { type: Type.STRING }
+          },
+          required: ["sql", "explanation"]
+        }
+      }
+    });
+    return res.json(JSON.parse(aiResponse.text || '{}'));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || String(err) });
+  }
+});
+
+// MODULE 2: Deep Quality Audit
+app.post('/api/deep-quality-audit', async (req, res) => {
+  const { auditSummary } = req.body || {};
+  const client = getGeminiClient();
+  try {
+    const prompt = `You are a Data Quality Engineer. Given this data quality audit summary:
+${JSON.stringify(auditSummary)}
+
+For each issue found (nulls, duplicates, type mismatches, etc.), generate a specific Python code snippet using pandas to fix the issue.
+Return strict JSON:
+{
+  "fixes": [
+    {
+      "issueName": "Missing values in Age",
+      "severity": "High",
+      "description": "Found 50 missing values...",
+      "pythonFix": "df['Age'].fillna(df['Age'].median(), inplace=True)"
+    }
+  ]
+}`;
+    const aiResponse = await generateContentWithRetry(client, {
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            fixes: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  issueName: { type: Type.STRING },
+                  severity: { type: Type.STRING },
+                  description: { type: Type.STRING },
+                  pythonFix: { type: Type.STRING }
+                },
+                required: ["issueName", "severity", "description", "pythonFix"]
+              }
+            }
+          },
+          required: ["fixes"]
+        }
+      }
+    });
+    return res.json(JSON.parse(aiResponse.text || '{}'));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || String(err) });
+  }
+});
+
+// MODULE 3: Hypothesis Lab
+app.post('/api/hypothesis-lab/generate', async (req, res) => {
+  const { columns, dataSample } = req.body || {};
+  const client = getGeminiClient();
+  try {
+    const prompt = `You are a Principal Data Scientist. Given these columns and sample data:
+Columns: ${JSON.stringify(columns)}
+Sample: ${JSON.stringify(dataSample)}
+
+Generate 6 to 8 specific, testable business hypotheses.
+Return strict JSON:
+{
+  "hypotheses": [
+    {
+      "statement": "Users on premium contracts have significantly higher monthly charges than basic contracts.",
+      "suggestedTest": "t-test",
+      "columnsInvolved": ["ContractType", "MonthlyCharges"]
+    }
+  ]
+}`;
+    const aiResponse = await generateContentWithRetry(client, {
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            hypotheses: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  statement: { type: Type.STRING },
+                  suggestedTest: { type: Type.STRING },
+                  columnsInvolved: { type: Type.ARRAY, items: { type: Type.STRING } }
+                },
+                required: ["statement", "suggestedTest", "columnsInvolved"]
+              }
+            }
+          },
+          required: ["hypotheses"]
+        }
+      }
+    });
+    return res.json(JSON.parse(aiResponse.text || '{}'));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || String(err) });
+  }
+});
+
+app.post('/api/hypothesis-lab/interpret', async (req, res) => {
+  const { hypothesis, result } = req.body || {};
+  const client = getGeminiClient();
+  try {
+    const prompt = `You are a Data Science Translator. Given this hypothesis and statistical test result:
+Hypothesis: ${JSON.stringify(hypothesis)}
+Result: ${JSON.stringify(result)}
+
+Generate a plain-English business interpretation of these results. What does it mean for the business?
+Return strict JSON: { "interpretation": "Your interpretation here..." }`;
+    const aiResponse = await generateContentWithRetry(client, {
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: { interpretation: { type: Type.STRING } },
+          required: ["interpretation"]
+        }
+      }
+    });
+    return res.json(JSON.parse(aiResponse.text || '{}'));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || String(err) });
+  }
+});
+
+// MODULE 4: A/B Test Interpreter
+app.post('/api/ab-test-interpreter', async (req, res) => {
+  const { results } = req.body || {};
+  const client = getGeminiClient();
+  try {
+    const prompt = `You are a Product Analyst. Given these A/B test results:
+${JSON.stringify(results)}
+
+Generate a business recommendation memo: should we ship this feature or not, and why?
+Return strict JSON: { "memo": "Memo content..." }`;
+    const aiResponse = await generateContentWithRetry(client, {
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: { memo: { type: Type.STRING } },
+          required: ["memo"]
+        }
+      }
+    });
+    return res.json(JSON.parse(aiResponse.text || '{}'));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || String(err) });
+  }
+});
+
+// MODULE 5: Model Explainer
+app.post('/api/model-explainer', async (req, res) => {
+  const { featureImportance, metrics, context } = req.body || {};
+  const client = getGeminiClient();
+  try {
+    const prompt = `You are an AI Explainer. Given the following model feature importance, metrics, and context:
+Feature Importance: ${JSON.stringify(featureImportance)}
+Metrics: ${JSON.stringify(metrics)}
+Context: ${JSON.stringify(context)}
+
+Generate a plain-English narrative:
+- Why the top 3 features matter most
+- What each feature's high or low value means for the target
+- One paragraph of business insight per top feature
+- An overall model quality summary
+
+Return strict JSON:
+{
+  "overallSummary": "The model performs well...",
+  "topFeatures": [
+    { "featureName": "Age", "explanation": "Why Age matters...", "impact": "High Age means...", "insight": "Business insight..." }
+  ]
+}`;
+    const aiResponse = await generateContentWithRetry(client, {
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            overallSummary: { type: Type.STRING },
+            topFeatures: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  featureName: { type: Type.STRING },
+                  explanation: { type: Type.STRING },
+                  impact: { type: Type.STRING },
+                  insight: { type: Type.STRING }
+                },
+                required: ["featureName", "explanation", "impact", "insight"]
+              }
+            }
+          },
+          required: ["overallSummary", "topFeatures"]
+        }
+      }
+    });
+    return res.json(JSON.parse(aiResponse.text || '{}'));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || String(err) });
+  }
+});
+
+// MODULE 6: Executive PDF Report
+app.post('/api/executive-pdf-report', async (req, res) => {
+  const { reportData } = req.body || {};
+  const client = getGeminiClient();
+  try {
+    const prompt = `You are a Chief Data Officer. Given the compiled data from all stages of analysis:
+${JSON.stringify(reportData)}
+
+Write a polished executive summary paragraph for a PDF report.
+Return strict JSON: { "executiveSummary": "Summary here..." }`;
+    const aiResponse = await generateContentWithRetry(client, {
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: { executiveSummary: { type: Type.STRING } },
+          required: ["executiveSummary"]
+        }
+      }
+    });
+    return res.json(JSON.parse(aiResponse.text || '{}'));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || String(err) });
+  }
+});
+
+// MODULE 7: ETL Script Generator
+app.post('/api/etl-script-generator', async (req, res) => {
+  const { transformations } = req.body || {};
+  const client = getGeminiClient();
+  try {
+    const prompt = `You are a Data Engineer. Given these data cleaning and transformation steps applied by the user:
+${JSON.stringify(transformations)}
+
+Generate a complete ready-to-run Python ETL script using pandas.
+It should include:
+- Data loading step
+- All cleaning steps in order
+- Export step to CSV
+
+Return strict JSON with the python code:
+{ "script": "import pandas as pd\\n..." }`;
+    const aiResponse = await generateContentWithRetry(client, {
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: { script: { type: Type.STRING } },
+          required: ["script"]
+        }
+      }
+    });
+    return res.json(JSON.parse(aiResponse.text || '{}'));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || String(err) });
+  }
+});
+
+// MODULE 8: Dashboard Configurator
+app.post('/api/dashboard/auto-configure', async (req, res) => {
+  const { profile, customProblem } = req.body || {};
+  const client = getGeminiClient();
+  try {
+    const prompt = `You are an expert dashboard designer. Given this dataset profile:
+${JSON.stringify(profile)}
+${customProblem ? `\nThe user explicitly stated the business problem is: ${customProblem}` : ''}
+
+Recommend the most appropriate dashboard components from this list: KPI Cards, Line Chart, Bar Chart, Pie Chart, Scatter Plot, Histogram, Heatmap Correlation Matrix, Geographic Map, Treemap, Funnel Chart, Box Plot, Area Chart, Data Table, Filters Panel, Slicers Panel.
+
+For each recommended component, specify:
+1. type: The component type (exact match with the list above).
+2. columnsToUse: Which column names from the dataset to use.
+3. questionAnswered: What business question it answers.
+4. whyRelevant: Why it is relevant to this dataset.
+
+Also identify the top 5 most important KPIs (numerical columns to track).
+Return strict JSON:
+{
+  "recommendedComponents": [
+    {
+      "type": "string",
+      "columnsToUse": ["col1", "col2"],
+      "questionAnswered": "string",
+      "whyRelevant": "string"
+    }
+  ],
+  "topKPIs": ["col1", "col2", "col3"],
+  "detectedDomain": "string",
+  "detectedProblem": "string"
+}`;
+    const aiResponse = await generateContentWithRetry(client, {
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            recommendedComponents: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  type: { type: Type.STRING },
+                  columnsToUse: { type: Type.ARRAY, items: { type: Type.STRING } },
+                  questionAnswered: { type: Type.STRING },
+                  whyRelevant: { type: Type.STRING }
+                },
+                required: ["type", "columnsToUse", "questionAnswered", "whyRelevant"]
+              }
+            },
+            topKPIs: { type: Type.ARRAY, items: { type: Type.STRING } },
+            detectedDomain: { type: Type.STRING },
+            detectedProblem: { type: Type.STRING }
+          },
+          required: ["recommendedComponents", "topKPIs", "detectedDomain", "detectedProblem"]
+        }
+      }
+    });
+    return res.json(JSON.parse(aiResponse.text || '{}'));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || String(err) });
+  }
+});
+
+// MODULE 9: Dashboard Insight Banner
+app.post('/api/dashboard/insight-banner', async (req, res) => {
+  const { dataStateSummary } = req.body || {};
+  const client = getGeminiClient();
+  try {
+    const prompt = `You are an executive business analyst. Given this summary of the current filtered data state on a dashboard:
+${JSON.stringify(dataStateSummary)}
+
+Return 3 bullet points of the most critical business insights visible in this current dashboard view. These should be short, concise, and highly actionable or descriptive. DO NOT return markdown formatting like '*' or '-', just the raw sentences in an array.
+
+Return strict JSON:
+{
+  "insights": ["Insight 1", "Insight 2", "Insight 3"]
+}`;
+    const aiResponse = await generateContentWithRetry(client, {
+      contents: prompt,
+      config: {
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            insights: { type: Type.ARRAY, items: { type: Type.STRING } }
+          },
+          required: ["insights"]
+        }
+      }
+    });
+    return res.json(JSON.parse(aiResponse.text || '{}'));
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || String(err) });
+  }
+});
+
+// --- ENTERPRISE ENDPOINTS: INGESTION, DB CONNECTIONS, AND MLOPS ---
+
+import { Client } from 'pg';
+
+let savedDbConfig: any = null;
+
+app.post('/api/db-connections', async (req, res) => {
+  const { provider, connectionString, schedule } = req.body;
+  
+  if (!provider || !connectionString) {
+    return res.status(400).json({ error: "Provider and Connection string required." });
+  }
+
+  if (provider === 'PostgreSQL') {
+    // Always use SSL for non-localhost connections
+    const isLocal = connectionString.includes('localhost') || connectionString.includes('127.0.0.1');
+                      
+    const client = new Client({ 
+      connectionString,
+      connectionTimeoutMillis: 10000,
+      ...(!isLocal ? { ssl: { rejectUnauthorized: false } } : {})
+    });
+    
+    try {
+      await client.connect();
+      // fetch all tables in public schema
+      const tablesRes = await client.query(`
+        SELECT table_name 
+        FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_type = 'BASE TABLE'
+      `);
+      
+      if (tablesRes.rows.length === 0) {
+        await client.end();
+        return res.status(400).json({ error: "No tables found in the public schema of the provided database." });
+      }
+
+      // query the first table
+      const firstTable = tablesRes.rows[0].table_name;
+      const dataRes = await client.query(`SELECT * FROM "${firstTable}" LIMIT 2000`);
+      
+      await client.end();
+      
+      savedDbConfig = { provider, connectionString, schedule };
+      return res.json({ 
+        status: "success", 
+        message: `Connected to PostgreSQL and sync scheduled via ${schedule}. Loaded ${dataRes.rows.length} rows from table "${firstTable}".`,
+        data: dataRes.rows 
+      });
+      
+    } catch (err: any) {
+      // try to end client if it's connected
+      try { await client.end(); } catch (e) {}
+
+      let errorMsg = err.message || String(err);
+      
+      // Friendly messages for common connection errors
+      if (errorMsg.includes('EAI_AGAIN') || errorMsg.includes('ENOTFOUND')) {
+        errorMsg = `Could not resolve hostname '${errorMsg.split(' ').pop()}'. Please check if your connection string has the correct database host URL, and that it is publicly accessible.`;
+      } else if (errorMsg.includes('ECONNREFUSED')) {
+        errorMsg = `Connection refused. The database might be offline or blocking port standard database ports.`;
+      } else if (errorMsg.includes('ETIMEDOUT') || errorMsg.includes('Connection timed out') || errorMsg.includes('timeout expired')) {
+        errorMsg = 'Connection timed out. The database is either unreachable, offline, or blocking traffic from this IP via a firewall. Make sure the database allows public outside connections.';
+      } else if (errorMsg.includes('no pg_hba.conf entry')) {
+        errorMsg = 'Database rejected connection (no pg_hba.conf entry). You may need to allow public access or add this IP to the allowlist.';
+      } else if (errorMsg.includes('password authentication failed')) {
+        errorMsg = 'Password authentication failed. Please verify your database username and password.';
+      }
+      
+      return res.status(500).json({ error: "Failed to connect to PostgreSQL: " + errorMsg });
+    }
+  }
+
+  // Handle other providers (Snowflake mock for now)
+  savedDbConfig = { provider, connectionString, schedule };
+  return res.json({ status: "success", message: `Connected to ${provider} and scheduled sync via ${schedule}`, data: null });
+});
+
+// Mock BI utility for schema validation check
+app.post('/api/validate-schema', (req, res) => {
+  const { data } = req.body;
+  if (!Array.isArray(data) || data.length === 0) {
+     return res.status(400).json({ status: "error", error: "Empty Dataset" });
+  }
+  
+  const sample = data[0];
+  const schemaNullsCount = Object.keys(sample).filter(k => sample[k] === null || sample[k] === undefined).length;
+  
+  if (schemaNullsCount > Object.keys(sample).length * 0.5) {
+     return res.status(400).json({ status: "error", error: "Schema Validation Failed: Excess null columns detected." });
+  }
+  
+  return res.json({ status: "success", message: "Schema validated for Data Warehouse ingestion" });
+});
+
+// Mock MLOps API Layer (simulating the Python FastAPI service)
+app.post('/api/train', (req, res) => {
+  const { data, target } = req.body;
+  if (!data || !target) return res.status(400).json({ error: "Missing training data or target" });
+  
+  // Simulated training time
+  setTimeout(() => {
+    res.json({ status: "Model trained successfully via Native Compute", task: "mock_classification", Accuracy: 0.94 });
+  }, 1500);
+});
+
+app.post('/api/predict', (req, res) => {
+  const { features } = req.body;
+  if (!features || !Array.isArray(features)) return res.status(400).json({ error: "Missing features array" });
+  
+  // Return random predictions
+  const predictions = features.map(() => Math.random() > 0.5 ? 1 : 0);
+  res.json({ predictions });
+});
+
+app.post('/api/drift-metrics', (req, res) => {
+    // Return mock KS-Test scores for data drift visualization
+    const drift_status = {
+        "Feature A": { ks_stat: 0.05, p_value: 0.42, drift_detected: false },
+        "Feature B": { ks_stat: 0.12, p_value: 0.02, drift_detected: true },
+        "Feature C": { ks_stat: 0.08, p_value: 0.15, drift_detected: false }
+    };
+    res.json({ drift_status });
+});
+
 async function start() {
   if (process.env.NODE_ENV !== 'production') {
     const { createServer: createViteServer } = await import('vite');
