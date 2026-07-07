@@ -43,7 +43,10 @@ import StageHeader from './components/StageHeader';
 import PipelineProgressBar from './components/PipelineProgressBar';
 import { usePipelineContext, PipelineStage } from './contexts/PipelineContext';
 
+import LoadingScreen from './components/LoadingScreen';
+
 export default function App() {
+  const [showLoading, setShowLoading] = useState(true);
   const { businessProblem, bannerDismissed, setBannerDismissed, expertMode, setExpertMode } = usePipelineContext();
   const [theme, setTheme] = useState<'dark' | 'light'>(() => {
     if (typeof window !== 'undefined') {
@@ -211,6 +214,9 @@ export default function App() {
 
   return (
     <div className={`min-h-screen bg-transparent text-slate-100 flex flex-col font-sans selection:bg-indigo-500/20 selection:text-indigo-300 ${theme === 'light' ? 'light' : ''}`} id="workstation_app">
+      {/* Loading Screen Overlay */}
+      {showLoading && <LoadingScreen onComplete={() => setShowLoading(false)} />}
+
       {/* Animated Glowing AskDeepakAI Logo Neural Background Chip */}
       <NeuralBackground />
 
@@ -258,7 +264,7 @@ export default function App() {
           )}
 
           {/* User Persona / Mode Toggle */}
-          <div className="hidden md:flex bg-slate-950/60 rounded-xl p-1 border border-slate-800">
+          <div className="flex bg-slate-950/60 rounded-xl p-1 border border-slate-800 shrink-0">
             <button
               onClick={() => setExpertMode(false)}
               className={`text-[10px] font-bold uppercase tracking-wider px-3 py-1.5 rounded-lg transition-colors ${!expertMode ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}
