@@ -241,21 +241,42 @@ export default function App() {
               <div className="w-[68%] h-full bg-[#b22038]"></div>
             </div>
           </div>
-          <div className="min-w-0 flex items-baseline gap-3">
-            <div className="flex items-center flex-wrap sm:flex-nowrap gap-2">
+          <div className="min-w-0 flex flex-col gap-2">
+            <div className="flex items-center gap-2">
               <span className="text-white text-base sm:text-[22px] tracking-tight leading-none whitespace-nowrap shrink-0 font-display transition-colors cursor-pointer hover:opacity-80">
                 <span className="font-light text-slate-400">Ask</span>
                 <span className="font-semibold text-white tracking-wider ml-0.5">Deepak</span>
                 <span className="font-bold text-indigo-400 ml-0.5">AI</span>
               </span>
-              <span className="text-[9px] uppercase font-mono px-2 py-1 rounded-[4px] bg-white/5 text-indigo-300 border border-indigo-400/20 tracking-[0.2em] shrink-0 font-semibold shadow-sm ml-2">
+              <span className="hidden sm:inline-block text-[9px] uppercase font-mono px-2 py-1 rounded-[4px] bg-white/5 text-indigo-300 border border-indigo-400/20 tracking-[0.2em] shrink-0 font-semibold shadow-sm ml-2">
                 DATA SCIENTIST V3.2
               </span>
+            </div>
+            
+            {/* Mobile Sub-Header: Version & Mode Toggle */}
+            <div className="sm:hidden flex items-center justify-between w-full max-w-[280px] bg-slate-950/60 rounded-lg p-0.5 border border-slate-800 shrink-0">
+              <span className="text-[8px] uppercase font-mono px-2 py-1 rounded-[4px] text-indigo-300 tracking-[0.1em] font-semibold">
+                DATA SCIENTIST V3.2
+              </span>
+              <div className="flex gap-0.5">
+                <button
+                  onClick={() => setExpertMode(false)}
+                  className={`text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded transition-colors ${!expertMode ? 'bg-indigo-600 text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}
+                >
+                  Beginner
+                </button>
+                <button
+                  onClick={() => setExpertMode(true)}
+                  className={`text-[9px] font-bold uppercase tracking-wider px-2 py-1 rounded transition-colors ${expertMode ? 'bg-amber-600 text-white shadow-sm' : 'text-slate-400 hover:text-white hover:bg-slate-800/50'}`}
+                >
+                  Expert
+                </button>
+              </div>
             </div>
           </div>
         </div>
 
-        <div className="flex items-center gap-5">
+        <div className="hidden sm:flex items-center gap-5">
           {activeDataset && (
             <div className="hidden sm:flex items-center gap-2 bg-black/20 backdrop-blur-md border border-white/5 px-4 py-1.5 rounded-full shadow-[inset_0_1px_8px_rgba(255,255,255,0.02)] text-xs">
               <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse shadow-[0_0_12px_rgba(16,185,129,0.8)]"></span>
@@ -263,7 +284,7 @@ export default function App() {
             </div>
           )}
 
-          {/* User Persona / Mode Toggle */}
+          {/* User Persona / Mode Toggle for Desktop */}
           <div className="flex bg-slate-950/60 rounded-xl p-1 border border-slate-800 shrink-0">
             <button
               onClick={() => setExpertMode(false)}
@@ -284,8 +305,7 @@ export default function App() {
             className="flex items-center gap-2 px-4 py-2 rounded-xl border border-[#3bc8c8]/20 bg-[#3bc8c8]/5 hover:bg-[#3bc8c8]/15 hover:border-[#3bc8c8]/40 text-[#3bc8c8] hover:text-[#57e2e2] transition-all duration-300 text-xs font-semibold select-none cursor-pointer shadow-[0_0_15px_rgba(59,200,200,0.05)] hover:shadow-[0_0_20px_rgba(59,200,200,0.15)] font-display"
           >
             <User className="w-3.5 h-3.5" />
-            <span className="hidden xs:inline tracking-wide">About the Creator</span>
-            <span className="xs:hidden">Creator</span>
+            <span className="tracking-wide">About the Creator</span>
           </button>
         </div>
       </header>
