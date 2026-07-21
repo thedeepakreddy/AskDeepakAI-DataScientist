@@ -38,7 +38,7 @@ async function generateContentWithRetry(client: GoogleGenAI, params: {
   contents: any;
   config?: any;
 }) {
-  const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash'];
+  const modelsToTry = ['gemini-3.5-flash', 'gemini-2.5-flash'];
   let lastError: any = null;
 
   for (const model of modelsToTry) {
