@@ -6,12 +6,38 @@
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
+import admin from 'firebase-admin';
 import { GoogleGenAI, Type } from '@google/genai';
 
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
 app.use(express.json({ limit: '50mb' }));
+
+// --- FIREBASE ADMIN INITIALIZATION ---
+let db: admin.firestore.Firestore | null = null;
+try {
+  const serviceAccountPath = path.join(process.cwd(), 'serviceAccountKey.json');
+  if (fs.existsSync(serviceAccountPath)) {
+    const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+    db = admin.firestore();
+    console.log('[Firebase] Admin SDK initialized via local serviceAccountKey.json.');
+  } else if (process.env.FIREBASE_SERVICE_ACCOUNT) {
+    const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
+    admin.initializeApp({
+      credential: admin.credential.cert(serviceAccount)
+    });
+    db = admin.firestore();
+    console.log('[Firebase] Admin SDK initialized via FIREBASE_SERVICE_ACCOUNT environment variable.');
+  } else {
+    console.warn('[Firebase] Warning: No service account credentials found. Firestore logging will be disabled.');
+  }
+} catch (error) {
+  console.error('[Firebase] Failed to initialize Admin SDK:', error);
+}
 
 // Helper to initialize GoogleGenAI client (Lazy initialization)
 let aiClient: GoogleGenAI | null = null;
@@ -803,16 +829,25 @@ app.post('/api/log-training-data', async (req, res) => {
       return res.status(400).json({ error: 'Invalid training data payload' });
     }
 
-    const logLine = JSON.stringify(payload) + '\n';
-    const filePath = path.join(process.cwd(), 'deepakllm_training_data.jsonl');
-    
-    // Append asynchronously to avoid blocking the event loop
-    await fs.promises.appendFile(filePath, logLine, 'utf8');
+    // Attempt to write to Firestore if configured
+    if (db) {
+      // We don't await this so it doesn't block the frontend response
+      db.collection('deepakllm_training_data').add(payload)
+        .then(() => console.log('[AskDeepakAI Training Logger] Logged action to Firestore:', payload.action))
+        .catch(err => console.error('[AskDeepakAI Training Logger] Firestore write failed:', err));
+    } else {
+      // Fallback to local file logging if Firestore isn't connected
+      const logLine = JSON.stringify(payload) + '\n';
+      const filePath = path.join(process.cwd(), 'deepakllm_training_data.jsonl');
+      fs.promises.appendFile(filePath, logLine, 'utf8').catch(err => 
+        console.error('[AskDeepakAI Training Logger] Local file write failed:', err)
+      );
+    }
     
     return res.status(200).json({ success: true });
   } catch (err: any) {
-    console.error('[AskDeepakAI Training Logger] Error saving data:', err);
-    return res.status(500).json({ error: 'Failed to save training data' });
+    console.error('[AskDeepakAI Training Logger] Error handling request:', err);
+    return res.status(500).json({ error: 'Failed to process training data' });
   }
 });
 
