@@ -76,6 +76,45 @@ export default function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+  // GLOBAL CLICK TRACKER FOR DEEPAKLLMS TRAINING DATA
+  React.useEffect(() => {
+    const handleGlobalClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      const button = target.closest('button') || target.closest('[role="button"]') || target.closest('a');
+      
+      if (button) {
+        // Exclude the assistive touch bot container to avoid spam, unless it's a specific action button inside it
+        if (button.closest('.assistive-touch-bot-container') && !button.textContent) {
+          return;
+        }
+
+        const actionText = button.textContent?.trim() || button.getAttribute('aria-label') || button.id || 'unknown_action';
+        
+        // Skip empty clicks or generic structural clicks
+        if (!actionText || actionText.length > 100) return;
+
+        const payload = {
+          timestamp: new Date().toISOString(),
+          stage: activeTab,
+          action: actionText,
+          hasDataset: !!activeDataset,
+          datasetName: activeDataset?.filename || null,
+          rowCount: activeDataset?.rowCount || 0,
+          columnCount: activeDataset?.columns?.length || 0
+        };
+
+        fetch('/api/log-training-data', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        }).catch(err => console.error('Failed to log training data:', err));
+      }
+    };
+
+    document.addEventListener('click', handleGlobalClick, true); // use capture phase
+    return () => document.removeEventListener('click', handleGlobalClick, true);
+  }, [activeTab, activeDataset]);
+
   const isSidebarExpanded = (!isPillMode || isHovered);
 
   // Keep premium pipeline pill layout activated and collapsing automatically

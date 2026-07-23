@@ -1,0 +1,100 @@
+./src/components/AssistiveTouchBot.tsx:247:                  const copy = { ...row };
+./src/components/AssistiveTouchBot.tsx:253:                  ...activeDataset,
+./src/components/AssistiveTouchBot.tsx:286:                    return { ...row, [targetCol.name]: fillVal };
+./src/components/AssistiveTouchBot.tsx:293:                    return { ...col, missingCount: 0 };
+./src/components/AssistiveTouchBot.tsx:299:                  ...activeDataset,
+./src/components/AssistiveTouchBot.tsx:356:                  ...activeDataset,
+./src/components/AssistiveTouchBot.tsx:388:                  ...row,
+./src/components/AssistiveTouchBot.tsx:393:                  ...activeDataset,
+./src/components/AssistiveTouchBot.tsx:394:                  columns: [...activeDataset.columns, newColMeta],
+./src/components/AssistiveTouchBot.tsx:427:              const updatedRows = [...activeDataset.rows, newRow];
+./src/components/AssistiveTouchBot.tsx:429:                ...activeDataset,
+./src/components/AssistiveTouchBot.tsx:443:                  ...activeDataset,
+./src/components/AssistiveTouchBot.tsx:468:                    ...activeDataset,
+./src/components/AssistiveTouchBot.tsx:469:                    ...updated,
+./src/components/AssistiveTouchBot.tsx:512:    setMessages(prev => [...prev, newMsg]);
+./src/components/AssistiveTouchBot.tsx:559:        console.warn('Backend server returned invalid or HTML response. running local copilot fallback...', e);
+./src/components/AssistiveTouchBot.tsx:574:      setMessages(prev => [...prev, botMsg]);
+./src/components/AssistiveTouchBot.tsx:590:      setMessages(prev => [...prev, errorMsg]);
+./src/components/AssistiveTouchBot.tsx:842:                              const matches = [...formatted.matchAll(boldRegex)];
+./src/components/AssistiveTouchBot.tsx:921:                        <span className="text-[9px] text-slate-450 font-mono font-medium ml-1">Computing...</span>
+./src/components/AssistiveTouchBot.tsx:958:                  placeholder="SQL query or command..."
+./src/components/AssistiveTouchBot.tsx:1011:            ...dataset,
+./src/components/AssistiveTouchBot.tsx:1047:            const copy = { ...row };
+./src/components/AssistiveTouchBot.tsx:1086:            ...dataset,
+./src/components/AssistiveTouchBot.tsx:1113:            ...dataset,
+./src/components/AssistiveTouchBot.tsx:1137:            const copy = { ...row };
+./src/components/AssistiveTouchBot.tsx:1144:            ...dataset,
+./src/components/AssistiveTouchBot.tsx:1200:    reply = `I've configured and triggered an automated Machine Learning pipeline for you!\n- **Stage**: ML Modeling\n- **Target Column**: \`${targetCol}\`\n- **Features**: ${JSON.stringify(features)}\n- **Model Type**: \`${mType}\`\n\nTraining starting now...`;
+./src/components/AssistiveTouchBot.tsx:1219:    reply = `I am executing a pipeline task to add a new column named **"${label}"** with default values. Checking structures...`;
+./src/components/StakeholderDashboard.tsx:325:            ...row,
+./src/components/StakeholderDashboard.tsx:338:          ...row,
+./src/components/StakeholderDashboard.tsx:355:          ...row,
+./src/components/StakeholderDashboard.tsx:388:        ...row,
+./src/components/StakeholderDashboard.tsx:470:      ...prev,
+./src/components/StakeholderDashboard.tsx:488:        return { ...f, currentMax: value };
+./src/components/StakeholderDashboard.tsx:500:        : [...currentValues, value];
+./src/components/StakeholderDashboard.tsx:502:        ...prev,
+./src/components/StakeholderDashboard.tsx:513:      ...f,
+./src/components/StakeholderDashboard.tsx:1156:                    onClick={() => setSelectedSlices(prev => ({ ...prev, [col]: [] }))}
+./src/components/ReportsHub.tsx:44:    'Ready for complete multi-column Unified Strategy Report execution...'
+./src/components/ReportsHub.tsx:105:    print("\\n[Clean] Handling missing values...")
+./src/components/ReportsHub.tsx:119:    print("\\n[Feature Engineering] Creating advanced polynomial & log transforms...")
+./src/components/ReportsHub.tsx:153:    print("\\n[Training] Instantiating Gradient Boosting Regressor Model...")
+./src/components/ReportsHub.tsx:182:    print("\\n[Training] Instantiating Random Forest Classifier Model...")
+./src/components/ReportsHub.tsx:231:        print(f"CSV file '{csv_filename}' not found. Generating dummy dataset for execution test...")
+./src/components/ReportsHub.tsx:263:      setLogs(prev => [...prev, `[EXPORT SUCCESS] Exported python script blueprint to file: "data_science_workflow.py"`]);
+./src/components/ReportsHub.tsx:274:      setLogs(prev => [...prev, '[SYSTEM] Successfully copied data science python code to clipboard.']);
+./src/components/ReportsHub.tsx:565:        ...prev,
+./src/components/ReportsHub.tsx:570:      setLogs(prev => [...prev, `ERROR generating PDF: ${err.message || err}`]);
+./src/components/DataCleaning.tsx:73:      const copy = { ...row };
+./src/components/DataCleaning.tsx:85:    setOperations([...operations, newOp]);
+./src/components/DataCleaning.tsx:87:      ...dataset,
+./src/components/DataCleaning.tsx:118:        return { ...row, [selectedCol]: fillValue };
+./src/components/DataCleaning.tsx:127:          ...col,
+./src/components/DataCleaning.tsx:141:    setOperations([...operations, newOp]);
+./src/components/DataCleaning.tsx:143:      ...dataset,
+./src/components/DataCleaning.tsx:184:      ...row,
+./src/components/DataCleaning.tsx:195:    setOperations([...operations, newOp]);
+./src/components/DataCleaning.tsx:197:      ...dataset,
+./src/components/DataCleaning.tsx:198:      columns: [...dataset.columns, newColMeta],
+./src/components/DataCleaning.tsx:220:    const updatedRows = [...dataset.rows, newRow];
+./src/components/DataCleaning.tsx:224:      ...col,
+./src/components/DataCleaning.tsx:229:      ...dataset,
+./src/components/DataCleaning.tsx:243:      ...dataset,
+./src/components/DataCleaning.tsx:316:        const sorted = [...numerics].sort((a, b) => a - b);
+./src/components/DataCleaning.tsx:366:    let updatedRows = [...dataset.rows];
+./src/components/DataCleaning.tsx:394:            ...row,
+./src/components/DataCleaning.tsx:417:      setOperations([...operations, newOp]);
+./src/components/DataCleaning.tsx:419:        ...dataset,
+./src/components/DataCleaning.tsx:420:        columns: [...dataset.columns, ...createdColsMeta],
+./src/components/DataCleaning.tsx:487:        ...row,
+./src/components/DataCleaning.tsx:501:    setOperations([...operations, newOp]);
+./src/components/DataCleaning.tsx:503:      ...dataset,
+./src/components/DataCleaning.tsx:504:      columns: [...dataset.columns, meta],
+./src/components/EDAReport.tsx:130:        const maxCount = Math.max(...bins.map(b => b.count), 1);
+./src/components/EDAReport.tsx:132:          ...b,
+./src/components/EDAReport.tsx:188:                Synthesizing coordinates...
+./src/components/EDAReport.tsx:255:              <span className="font-mono text-indigo-400">{(aiAnalysis.suggestedFeatures || []).slice(0,3).join(', ')}...</span>
+./src/components/EDAReport.tsx:1059:                        ... list truncated. Showing top 15 highest-frequency discrete unique levels.
+./src/components/MLPipeline.tsx:205:    setProgressLog(prev => [...prev, `⚡ Automatically configured target context to "${targetName}" (${suggestedType.toUpperCase()}) with advised input dimensions.`]);
+./src/components/MLPipeline.tsx:212:      setSelectedFeatures([...selectedFeatures, name]);
+./src/components/MLPipeline.tsx:218:    setProgressLog(prev => [...prev, "Initializing Multi-Model Orchestration Engine..."]);
+./src/components/MLPipeline.tsx:221:      setProgressLog(prev => [...prev, `Splitting dataset (Train Holdout Ratio: ${splitRatio * 100}% / ${(1 - splitRatio) * 100}% validation test)...`]);
+./src/components/MLPipeline.tsx:225:      setProgressLog(prev => [...prev, `Isolating objective target column: "${target}"`]);
+./src/components/MLPipeline.tsx:229:      setProgressLog(prev => [...prev, `Applying custom algorithm choice: "${selectedAlgorithmId.toUpperCase()}"`]);
+./src/components/MLPipeline.tsx:233:      setProgressLog(prev => [...prev, `[Supervised] Training regression & classification matrices...`]);
+./src/components/MLPipeline.tsx:237:      setProgressLog(prev => [...prev, `[Unsupervised] Computing K-Means partitioning (K=${clusterK}) and covariance eigenvectors...`]);
+./src/components/MLPipeline.tsx:241:      setProgressLog(prev => [...prev, `[Ensemble] Assembling ${estimators} weak estimators and calculating Out-of-Bag (OOB) limits...`]);
+./src/components/MLPipeline.tsx:245:      setProgressLog(prev => [...prev, `[Deep Learning] Constructing backpropagation feedforward neural network structure...`]);
+./src/components/MLPipeline.tsx:249:      setProgressLog(prev => [...prev, `[System-Wide] Serializing model parameters and compiling relative benchmark comparisons...`]);
+./src/components/MLPipeline.tsx:269:      setProgressLog(prev => [...prev, `✓ Success! Multi-Model Orchestration Pipeline fully compiled into active workspace.`]);
+./src/components/MLPipeline.tsx:272:      setProgressLog(prev => [...prev, `❌ Error during training pipeline compiler: ${err.message}`]);
+./src/components/MLPipeline.tsx:724:                  Compiling Pipeline Weights...
+./src/components/MLPipeline.tsx:1314:                              {JSON.stringify(layer.weights.slice(0, 2)).substring(0, 150)}...
+./src/utils/csvParser.ts:164:        const sorted = [...numericCells].sort((a, b) => a - b);
+./src/utils/mlEngine.ts:241:    centroids.push([...dataStore[targetIdx]]);
+./src/utils/edaEngine.ts:54:  const sorted = [...values].sort((a, b) => a - b);
+./src/App.tsx:136:        console.warn('Backend server returned invalid or HTML response. running local analysis fallback...', parseErr);
+./src/App.tsx:185:        console.warn('Backend server returned invalid or HTML response. running local ML fallback...', parseErr);
+./src/App.tsx:710:  })).map(item => ({ ...item, score: item.score > 0 ? item.score : 0.05 }));

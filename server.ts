@@ -5,6 +5,7 @@
 
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import { GoogleGenAI, Type } from '@google/genai';
 
 const app = express();
@@ -38,7 +39,7 @@ async function generateContentWithRetry(client: GoogleGenAI, params: {
   contents: any;
   config?: any;
 }) {
-  const modelsToTry = ['gemini-3.5-flash', 'gemini-2.5-flash'];
+  const modelsToTry = ['gemini-2.5-flash', 'gemini-2.0-flash'];
   let lastError: any = null;
 
   for (const model of modelsToTry) {
@@ -791,6 +792,27 @@ Active Dataset Context:
     console.error('[AskDeepakAI ChatBot API] Error running neural model:', apiError);
     // Graceful fallback on API error
     return res.json(getFallbackResponse());
+  }
+});
+
+// LOG TRAINING DATA FOR DEEPAKLLMS
+app.post('/api/log-training-data', async (req, res) => {
+  try {
+    const payload = req.body;
+    if (!payload || !payload.action) {
+      return res.status(400).json({ error: 'Invalid training data payload' });
+    }
+
+    const logLine = JSON.stringify(payload) + '\n';
+    const filePath = path.join(process.cwd(), 'deepakllm_training_data.jsonl');
+    
+    // Append asynchronously to avoid blocking the event loop
+    await fs.promises.appendFile(filePath, logLine, 'utf8');
+    
+    return res.status(200).json({ success: true });
+  } catch (err: any) {
+    console.error('[AskDeepakAI Training Logger] Error saving data:', err);
+    return res.status(500).json({ error: 'Failed to save training data' });
   }
 });
 
