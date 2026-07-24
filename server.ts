@@ -6,7 +6,8 @@
 import express from 'express';
 import path from 'path';
 import fs from 'fs';
-import admin from 'firebase-admin';
+import { initializeApp, cert } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
 import { GoogleGenAI, Type } from '@google/genai';
 
 const app = express();
@@ -15,22 +16,22 @@ const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 app.use(express.json({ limit: '50mb' }));
 
 // --- FIREBASE ADMIN INITIALIZATION ---
-let db: admin.firestore.Firestore | null = null;
+let db: FirebaseFirestore.Firestore | null = null;
 try {
   const serviceAccountPath = path.join(process.cwd(), 'serviceAccountKey.json');
   if (fs.existsSync(serviceAccountPath)) {
     const serviceAccount = JSON.parse(fs.readFileSync(serviceAccountPath, 'utf8'));
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
+    initializeApp({
+      credential: cert(serviceAccount)
     });
-    db = admin.firestore();
+    db = getFirestore();
     console.log('[Firebase] Admin SDK initialized via local serviceAccountKey.json.');
   } else if (process.env.FIREBASE_SERVICE_ACCOUNT) {
     const serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT);
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount)
+    initializeApp({
+      credential: cert(serviceAccount)
     });
-    db = admin.firestore();
+    db = getFirestore();
     console.log('[Firebase] Admin SDK initialized via FIREBASE_SERVICE_ACCOUNT environment variable.');
   } else {
     console.warn('[Firebase] Warning: No service account credentials found. Firestore logging will be disabled.');
